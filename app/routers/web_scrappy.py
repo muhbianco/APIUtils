@@ -174,9 +174,6 @@ def web_scrappy(
                     else:
                         with open(file_path, "r") as fc:
                             content = html_cleanner(fc.read())
-
-                        if payload.resume:
-
                         
                         return {"response": content}
         time.sleep(1)
