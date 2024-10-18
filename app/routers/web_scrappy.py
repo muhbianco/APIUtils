@@ -154,7 +154,18 @@ def web_scrappy(
             for _file in files:
                 if fnmatch(_file, f"{file_prefix}*"):
                     response_file = _file
-                    return FileResponse(f"{prefix_dir}/{response_file}", media_type='application/octet-stream', filename=response_file)
+                    file_path = f"{prefix_dir}/{response_file}"
+                    if payload.file:
+                        return FileResponse(
+                            file_path,
+                            media_type='application/octet-stream',
+                            filename=response_file,
+                            headers={"Content-Disposition": f"attachment; filename={response_file}"}
+                        )
+                    else:
+                        with open(file_path, "r") as fc:
+                            content = fc.read()
+                        return {"response": content}
         time.sleep(1)
     return {"error": "File not found"}
 
