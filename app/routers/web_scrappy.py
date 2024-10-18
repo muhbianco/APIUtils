@@ -148,6 +148,7 @@ def web_scrappy(
 
 
     response_file = None
+    start_time = time.time()
     while response_file is None and (time.time() - start_time) < 60:
         for _root, _dir, files in os.walk(prefix_dir):
             for _file in files:
