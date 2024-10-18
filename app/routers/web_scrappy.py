@@ -156,11 +156,11 @@ def web_scrappy(
 
     if payload.resume:
         content = extract_article(payload.url)
-        content = f"""Titulo: {content.title}
-        Resumo noticia: {content.text}
-        """
-        return content.strip().strip("\"")
-        return JSONResponse(status_code=200, content={"content": content})
+        content = f"Titulo: {content.title} Resumo noticia: {content.text}"
+        return JSONResponse(
+            status_code=200,
+            content={"content": content.strip().strip("\"").strip("\\n")}
+        )
 
     file_prefix = str(uuid.uuid4())
     process = multiprocessing.Process(target=run_crawler, args=(payload.url, file_prefix, ))
