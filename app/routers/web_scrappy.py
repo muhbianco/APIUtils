@@ -155,8 +155,7 @@ def web_scrappy(
                 if fnmatch(_file, f"{file_prefix}*"):
                     response_file = _file
                     return FileResponse(f"{prefix_dir}/{response_file}", media_type='application/octet-stream', filename=response_file)
-                else:
-                    return {"error": "File not found"}
         time.sleep(1)
+    return {"error": "File not found"}
 
     
