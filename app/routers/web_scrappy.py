@@ -5,14 +5,14 @@ import os
 import time
 
 from typing_extensions import TypedDict
-from typing import List, Annotated, Any
+from typing import List, Annotated, Any, Union, Tuple
 from pprint import pprint, pformat
 from urllib.parse import urlencode, urljoin, urlparse
 from fnmatch import fnmatch
 
 from fastapi import APIRouter, Request, status, Body
 from fastapi_versioning import version
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from scrapy.crawler import CrawlerProcess
 from scrapy.linkextractors import LinkExtractor
@@ -40,6 +40,13 @@ def get_scrapeops_url(url):
 def html_cleanner(html: str) -> str:
     soup = BeautifulSoup(html, "lxml")
     return soup.get_text()
+
+
+def extract_article(url: str) -> Article:
+    article = Article(url)
+    article.download()
+    article.parse()
+    return article
 
 
 class TextSpider(scrapy.Spider):
@@ -115,10 +122,9 @@ class TextSpider(scrapy.Spider):
                     )
 
         file_name = f"{self.file_id}.{file_type}"
-        print("FILE_NAME", file_name)
         file_path = f"/mnt/scrappers/{file_name}"
         with open(file_path, "wb") as f:
-            f.write(response.body)
+            f.write(response.body.strip())
 
 @router.post(
     "/",
@@ -133,7 +139,7 @@ class TextSpider(scrapy.Spider):
 def web_scrappy(
     request: Request,
     payload: Annotated[ScrappyBase, Body(title="Dados do request.")],
-) -> Any:
+) -> FileResponse or JSONResponse:
 
     def run_crawler(url: str, file_id: str):
         Settings()
@@ -147,6 +153,14 @@ def web_scrappy(
         )
         crawler.crawl(TextSpider, payload.url, file_id)
         crawler.start()
+
+    if payload.resume:
+        content = extract_article(payload.url)
+        content = f"""Titulo: {content.title}
+        Resumo noticia: {content.text}
+        """
+        return content.strip().strip("\"")
+        return JSONResponse(status_code=200, content={"content": content})
 
     file_prefix = str(uuid.uuid4())
     process = multiprocessing.Process(target=run_crawler, args=(payload.url, file_prefix, ))
@@ -174,8 +188,7 @@ def web_scrappy(
                     else:
                         with open(file_path, "r") as fc:
                             content = html_cleanner(fc.read())
-                        
-                        return {"response": content}
+                        return JSONResponse(status_code=200, content=content)
         time.sleep(1)
     return {"error": "File not found"}
 
