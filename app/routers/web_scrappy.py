@@ -2,6 +2,7 @@ import uuid
 import scrapy
 import multiprocessing
 import os
+import time
 
 from typing_extensions import TypedDict
 from typing import List, Annotated, Any
@@ -118,13 +119,12 @@ class TextSpider(scrapy.Spider):
             "description": "Any error!",
         }
     },
-    response_class=FileResponse,
 )
 @version(1, 0)
 def web_scrappy(
     request: Request,
     payload: Annotated[ScrappyBase, Body(title="Dados do request.")],
-) -> FileResponse:
+) -> Any:
 
     def run_crawler(url: str, file_id: str):
         Settings()
@@ -146,12 +146,16 @@ def web_scrappy(
 
     prefix_dir = "/mnt/scrappers"
 
-    for _root, _dir, files in os.walk(prefix_dir):
-        for _file in files:
-            if fnmatch(_file, f"{file_prefix}*"):
-                response_file = _file
-                return FileResponse(f"{prefix_dir}/{response_file}", media_type='application/octet-stream', filename=response_file)
-            else:
-                return {"error": "File not found"}
+
+    response_file = None
+    while response_file is None and (time.time() - start_time) < 60:
+        for _root, _dir, files in os.walk(prefix_dir):
+            for _file in files:
+                if fnmatch(_file, f"{file_prefix}*"):
+                    response_file = _file
+                    return FileResponse(f"{prefix_dir}/{response_file}", media_type='application/octet-stream', filename=response_file)
+                else:
+                    return {"error": "File not found"}
+        time.sleep(1)
 
     
