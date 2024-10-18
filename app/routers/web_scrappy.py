@@ -21,6 +21,10 @@ from scrapy_splash import SplashRequest
 
 from twisted.internet import asyncioreactor
 
+from bs4 import BeautifulSoup
+
+from newspaper import Article
+
 from app.schemas.scrappy import ScrappyBase
 
 asyncioreactor.install()
@@ -31,6 +35,11 @@ def get_scrapeops_url(url):
     payload = {"api_key": api_key, "url": url}
     proxy_url = "https://proxy.scrapeops.io/v1/?" + urlencode(payload)
     return proxy_url
+
+
+def html_cleanner(html: str) -> str:
+    soup = BeautifulSoup(html, "lxml")
+    return soup.get_text()
 
 
 class TextSpider(scrapy.Spider):
@@ -164,7 +173,11 @@ def web_scrappy(
                         )
                     else:
                         with open(file_path, "r") as fc:
-                            content = fc.read()
+                            content = html_cleanner(fc.read())
+
+                        if payload.resume:
+
+                        
                         return {"response": content}
         time.sleep(1)
     return {"error": "File not found"}
