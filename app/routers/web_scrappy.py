@@ -1,14 +1,17 @@
 import uuid
 import scrapy
 import multiprocessing
+import os
 
 from typing_extensions import TypedDict
 from typing import List, Annotated, Any
 from pprint import pprint, pformat
 from urllib.parse import urlencode, urljoin, urlparse
+from fnmatch import fnmatch
 
 from fastapi import APIRouter, Request, status, Body
 from fastapi_versioning import version
+from fastapi.responses import FileResponse
 
 from scrapy.crawler import CrawlerProcess
 from scrapy.linkextractors import LinkExtractor
@@ -76,7 +79,6 @@ class TextSpider(scrapy.Spider):
             )
 
     def parse(self, response):
-        file_id = str(uuid.uuid4())
         content_type = response.headers.get("Content-Type", b"").decode("utf-8").lower()
 
         file_type = None
@@ -102,9 +104,10 @@ class TextSpider(scrapy.Spider):
                         args={"wait": 5},
                     )
 
-        file_name = f"{file_id}.{file_type}"
-        temp_path = f"/mnt/scrappers/{file_name}"
-        with open(temp_path, "wb") as f:
+        file_name = f"{self.file_id}.{file_type}"
+        print("FILE_NAME", file_name)
+        file_path = f"/mnt/scrappers/{file_name}"
+        with open(file_path, "wb") as f:
             f.write(response.body)
 
 @router.post(
@@ -115,12 +118,13 @@ class TextSpider(scrapy.Spider):
             "description": "Any error!",
         }
     },
+    response_class=FileResponse,
 )
 @version(1, 0)
 def web_scrappy(
     request: Request,
     payload: Annotated[ScrappyBase, Body(title="Dados do request.")],
-) -> Any:
+) -> FileResponse:
 
     def run_crawler(url: str, file_id: str):
         Settings()
@@ -135,11 +139,19 @@ def web_scrappy(
         crawler.crawl(TextSpider, payload.url, file_id)
         crawler.start()
 
-    file_id: str = str(uuid.uuid4())
-    process = multiprocessing.Process(target=run_crawler, args=(payload.url, file_id))
+    file_prefix = str(uuid.uuid4())
+    process = multiprocessing.Process(target=run_crawler, args=(payload.url, file_prefix, ))
     process.start()
     process.join()
 
-    return {
-        "file_id": file_id,
-    }
+    prefix_dir = "/mnt/scrappers"
+
+    for _root, _dir, files in os.walk(prefix_dir):
+        for _file in files:
+            if fnmatch(_file, f"{file_prefix}*"):
+                response_file = _file
+                return FileResponse(f"{prefix_dir}/{response_file}", media_type='application/octet-stream', filename=response_file)
+            else:
+                return {"error": "File not found"}
+
+    
