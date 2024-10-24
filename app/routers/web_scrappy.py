@@ -3,6 +3,7 @@ import scrapy
 import multiprocessing
 import os
 import time
+import re
 
 from typing_extensions import TypedDict
 from typing import List, Annotated, Any, Union, Tuple
@@ -26,9 +27,12 @@ from bs4 import BeautifulSoup
 from newspaper import Article
 
 from app.schemas.scrappy import ScrappyBase
+from app.schemas.scrappy import ScrappyEmails
 
 asyncioreactor.install()
 router = APIRouter()
+
+prefix_dir = "/mnt/scrappers"
 
 def get_scrapeops_url(url):
     api_key = "d4a17a9b-ea30-4d85-aae8-3ce14df28f41"
@@ -49,6 +53,12 @@ def extract_article(url: str) -> Article:
     return article
 
 
+def extract_emails(text: str) -> List[str]:
+    # Expressão regular para capturar e-mails
+    email_pattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
+    return re.findall(email_pattern, text)
+
+
 class TextSpider(scrapy.Spider):
     name = "text_spider"
 
@@ -56,7 +66,7 @@ class TextSpider(scrapy.Spider):
     allowed_domains: List[str] = []
 
     def __init__(
-        self, url: str, file_id: str, full_site: bool = False,
+        self, url: str, file_id: str, full_site: bool = False, get_emails: bool = False
     ):
         self.parsed_url = urlparse(url)
         self.start_urls = [url]
@@ -64,6 +74,7 @@ class TextSpider(scrapy.Spider):
         self.full_site = full_site
         self.link_extractor = LinkExtractor()
         self.file_id = file_id
+        self.get_emails = get_emails
 
         ua = (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) "
@@ -121,10 +132,20 @@ class TextSpider(scrapy.Spider):
                         args={"wait": 5},
                     )
 
-        file_name = f"{self.file_id}.{file_type}"
-        file_path = f"/mnt/scrappers/{file_name}"
-        with open(file_path, "wb") as f:
-            f.write(response.body.strip())
+        if self.get_emails:
+            page_text = html_cleanner(response.text)
+            emails = extract_emails(page_text)
+            file_name = f"{self.file_id}_emails.txt"
+            file_path = f"{prefix_dir}/{file_name}"
+            with open(file_path, "a") as f:
+                for email in emails:
+                    f.write(f"{email}\n")
+            self.log(f"Captured emails: {emails}")
+        else:
+            file_name = f"{self.file_id}.{file_type}"
+            file_path = f"{prefix_dir}/{file_name}"
+            with open(file_path, "wb") as f:
+                f.write(response.body.strip())
 
 @router.post(
     "/",
@@ -167,9 +188,6 @@ def web_scrappy(
     process.start()
     process.join()
 
-    prefix_dir = "/mnt/scrappers"
-
-
     response_file = None
     start_time = time.time()
     while response_file is None and (time.time() - start_time) < 60:
@@ -192,4 +210,58 @@ def web_scrappy(
         time.sleep(1)
     return {"error": "File not found"}
 
-    
+@router.post(
+    "/get_emails",
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {
+            "description": "Any error!",
+        }
+    },
+)
+@version(1, 0)
+def get_emails(
+    request: Request,
+    payload: Annotated[ScrappyEmails, Body(title="Dados do request.")],
+) -> FileResponse or JSONResponse:
+    def run_crawler(url: str, file_id: str):
+        Settings()
+        crawler = CrawlerProcess(
+            settings={
+                "CONCURRENT_REQUESTS": 5,
+                "DOWNLOAD_DELAY": 10,
+                "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+                "INSTALL_SIGNAL_HANDLERS": False,
+            }
+        )
+        crawler.crawl(TextSpider, payload.url, file_id, full_site=payload.full_site, get_emails=True)
+        crawler.start()
+
+    file_prefix = str(uuid.uuid4())
+    process = multiprocessing.Process(target=run_crawler, args=(payload.url, file_prefix, ))
+    process.start()
+    process.join()
+
+    response_file = None
+    start_time = time.time()
+    while response_file is None and (time.time() - start_time) < 60:
+        for _root, _dir, files in os.walk(prefix_dir):
+            for _file in files:
+                if fnmatch(_file, f"{file_prefix}_emails.txt"):
+                    response_file = _file
+                    file_path = f"{prefix_dir}/{response_file}"
+                    if payload.file:
+                        return FileResponse(
+                            file_path,
+                            media_type='application/octet-stream',
+                            filename=response_file,
+                            headers={"Content-Disposition": f"attachment; filename={response_file}"}
+                        )
+                    else:
+                        with open(file_path, "r") as fc:
+                            content = fc.read()
+                        content_list = [item for item in content.split("\n") if item]
+                        content_list = list(dict.fromkeys(content_list))
+                        return JSONResponse(status_code=200, content=content_list)
+        time.sleep(1)
+    return {"error": "File not found"}
