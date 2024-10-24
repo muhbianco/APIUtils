@@ -262,6 +262,6 @@ def get_emails(
                             content = fc.read()
                         content_list = [item for item in content.split("\n") if item]
                         content_list = list(dict.fromkeys(content_list))
-                        return JSONResponse(status_code=200, content=content_list)
+                        return JSONResponse(status_code=200, content={"response": content_list})
         time.sleep(1)
     return {"error": "File not found"}
