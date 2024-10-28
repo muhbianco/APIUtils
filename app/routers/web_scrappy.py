@@ -4,14 +4,17 @@ import multiprocessing
 import os
 import time
 import re
+import inspect
 
 from typing_extensions import TypedDict
 from typing import List, Annotated, Any, Union, Tuple
 from pprint import pprint, pformat
 from urllib.parse import urlencode, urljoin, urlparse
 from fnmatch import fnmatch
+from validators import url as url_validate
+from validators.utils import ValidationError
 
-from fastapi import APIRouter, Request, status, Body
+from fastapi import APIRouter, Request, status, Body, HTTPException
 from fastapi_versioning import version
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -26,7 +29,6 @@ from bs4 import BeautifulSoup
 
 from newspaper import Article
 
-from app.schemas.scrappy import ScrappyBase
 from app.schemas.scrappy import ScrappyEmails
 
 asyncioreactor.install()
@@ -50,6 +52,7 @@ def extract_article(url: str) -> Article:
     article = Article(url)
     article.download()
     article.parse()
+    #article.title article.text
     return article
 
 
@@ -68,6 +71,7 @@ class TextSpider(scrapy.Spider):
     def __init__(
         self, url: str, file_id: str, full_site: bool = False, get_emails: bool = False
     ):
+        self.allowed_methods: List[str] = ["get_email"]
         self.parsed_url = urlparse(url)
         self.start_urls = [url]
         self.allowed_domains = [self.parsed_url.netloc, "proxy.scrapeops.io"]
@@ -75,6 +79,11 @@ class TextSpider(scrapy.Spider):
         self.link_extractor = LinkExtractor()
         self.file_id = file_id
         self.get_emails = get_emails
+        self.email_list = []
+
+        self.caller = inspect.stack().function
+        if self.caller not in self.allowed_methods:
+            raise HTTPException(status_code=400, detail="Method not allowed")
 
         ua = (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) "
@@ -132,37 +141,56 @@ class TextSpider(scrapy.Spider):
                         args={"wait": 5},
                     )
 
-        if self.get_emails:
+        if self.caller == "get_emails":
             page_text = html_cleanner(response.text)
             emails = extract_emails(page_text)
             file_name = f"{self.file_id}_emails.txt"
             file_path = f"{prefix_dir}/{file_name}"
             with open(file_path, "a") as f:
                 for email in emails:
-                    f.write(f"{email}\n")
+                    if email not in self.email_list:
+                        self.email_list.append(email)
+                        f.write(f"{email}\n")
             self.log(f"Captured emails: {emails}")
+
         else:
-            file_name = f"{self.file_id}.{file_type}"
-            file_path = f"{prefix_dir}/{file_name}"
-            with open(file_path, "wb") as f:
-                f.write(response.body.strip())
+            raise HTTPException(status_code=400, detail="Method not allowed")
 
-@router.post(
-    "/",
-    status_code=status.HTTP_200_OK,
-    responses={
-        400: {
-            "description": "Any error!",
-        }
-    },
-)
-@version(1, 0)
-def web_scrappy(
-    request: Request,
-    payload: Annotated[ScrappyBase, Body(title="Dados do request.")],
-) -> FileResponse or JSONResponse:
 
-    def run_crawler(url: str, file_id: str):
+class WaitReponse:
+    object_content: FileResponse | JSONResponse = JSONResponse(status_code=404, content={"detail": "Not found."})
+
+    def __init__(self, file_prefix: str, type_return: str):
+        response_file = None
+        start_time = time.time()
+        while response_file is None and (time.time() - start_time) < 20:
+            for _root, _dir, files in os.walk(prefix_dir):
+                for _file in files:
+                    if fnmatch(_file, f"{file_prefix}_emails.txt"):
+                        response_file = _file
+                        file_path = f"{prefix_dir}/{response_file}"
+                        if type_return == "file":
+                            self.object_content = FileResponse(
+                                file_path,
+                                media_type='application/octet-stream',
+                                filename=response_file,
+                                headers={"Content-Disposition": f"attachment; filename={response_file}"}
+                            )
+                        elif type_return == "json":
+                            with open(file_path, "r") as fc:
+                                content = fc.read()
+                            content_list = [item for item in content.split("\n") if item]
+                            content_list = list(dict.fromkeys(content_list))
+                            self.object_content = JSONResponse(status_code=200, content={"response": content_list})
+            time.sleep(1)
+
+def run_crawler(url: str, file_id: str, full_site: bool, error_queue: multiprocessing.Queue):
+    print("validando url")
+    try:
+        if isinstance(url_validate(url), ValidationError):
+            print("deu merda")
+            raise HTTPException(status_code=400, detail="URL is not a valid url")
+
         Settings()
         crawler = CrawlerProcess(
             settings={
@@ -172,43 +200,13 @@ def web_scrappy(
                 "INSTALL_SIGNAL_HANDLERS": False,
             }
         )
-        crawler.crawl(TextSpider, payload.url, file_id)
+        crawler.crawl(TextSpider, url, file_id, full_site=full_site)
         crawler.start()
+    except HTTPException as e:
+        print("add na fila?")
+        error_queue.put((e.status_code, e.detail))
+        raise HTTPException(status_code=400, detail="URL is not a valid url")
 
-    if payload.resume:
-        content = extract_article(payload.url)
-        content = f"Titulo: {content.title} Resumo noticia: {content.text}"
-        return JSONResponse(
-            status_code=200,
-            content={"content": content.strip().strip("\"").strip("\\n")}
-        )
-
-    file_prefix = str(uuid.uuid4())
-    process = multiprocessing.Process(target=run_crawler, args=(payload.url, file_prefix, ))
-    process.start()
-    process.join()
-
-    response_file = None
-    start_time = time.time()
-    while response_file is None and (time.time() - start_time) < 60:
-        for _root, _dir, files in os.walk(prefix_dir):
-            for _file in files:
-                if fnmatch(_file, f"{file_prefix}*"):
-                    response_file = _file
-                    file_path = f"{prefix_dir}/{response_file}"
-                    if payload.file:
-                        return FileResponse(
-                            file_path,
-                            media_type='application/octet-stream',
-                            filename=response_file,
-                            headers={"Content-Disposition": f"attachment; filename={response_file}"}
-                        )
-                    else:
-                        with open(file_path, "r") as fc:
-                            content = html_cleanner(fc.read())
-                        return JSONResponse(status_code=200, content=content)
-        time.sleep(1)
-    return {"error": "File not found"}
 
 @router.post(
     "/get_emails",
@@ -224,44 +222,18 @@ def get_emails(
     request: Request,
     payload: Annotated[ScrappyEmails, Body(title="Dados do request.")],
 ) -> FileResponse or JSONResponse:
-    def run_crawler(url: str, file_id: str):
-        Settings()
-        crawler = CrawlerProcess(
-            settings={
-                "CONCURRENT_REQUESTS": 5,
-                "DOWNLOAD_DELAY": 10,
-                "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
-                "INSTALL_SIGNAL_HANDLERS": False,
-            }
-        )
-        crawler.crawl(TextSpider, payload.url, file_id, full_site=payload.full_site, get_emails=True)
-        crawler.start()
-
+    error_queue = multiprocessing.Queue()
+    
     file_prefix = str(uuid.uuid4())
-    process = multiprocessing.Process(target=run_crawler, args=(payload.url, file_prefix, ))
+    process = multiprocessing.Process(target=run_crawler, args=(payload.url, file_prefix, payload.full_site, error_queue))
     process.start()
     process.join()
 
-    response_file = None
-    start_time = time.time()
-    while response_file is None and (time.time() - start_time) < 60:
-        for _root, _dir, files in os.walk(prefix_dir):
-            for _file in files:
-                if fnmatch(_file, f"{file_prefix}_emails.txt"):
-                    response_file = _file
-                    file_path = f"{prefix_dir}/{response_file}"
-                    if payload.file:
-                        return FileResponse(
-                            file_path,
-                            media_type='application/octet-stream',
-                            filename=response_file,
-                            headers={"Content-Disposition": f"attachment; filename={response_file}"}
-                        )
-                    else:
-                        with open(file_path, "r") as fc:
-                            content = fc.read()
-                        content_list = [item for item in content.split("\n") if item]
-                        content_list = list(dict.fromkeys(content_list))
-                        return JSONResponse(status_code=200, content={"response": content_list})
-        time.sleep(1)
-    return {"error": "File not found"}
+    if process.exitcode != 0 and not error_queue.empty():
+        error_status_code, error_detail = error_queue.get()
+        return JSONResponse(status_code=error_status_code, content={"detail": error_detail})
+    
+
+    print("ta vindo pra cá?")
+    response = WaitReponse(file_prefix, payload.type_reponse)
+    return response.object_content

@@ -1,13 +1,17 @@
 from pydantic import BaseModel
+from enum import Enum
 
 
-class ScrappyBase(BaseModel):
-    url: str
-    file: bool = False
-    resume: bool = False
 
+class TypeResponse(str, Enum):
+    file = "file"
+    json = "json"
 
 class ScrappyEmails(BaseModel):
     url: str
     full_site: bool = False
-    file: bool = False
+    type_reponse: TypeResponse
+
+class ScrappyPrices(BaseModel):
+    url: str
+    type_reponse: TypeResponse
