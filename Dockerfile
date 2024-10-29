@@ -6,7 +6,7 @@ RUN apk add gcc build-base python3-dev musl-dev \
                         libxml2-dev libxslt-dev
 RUN mkdir -p /usr/src/environments/api_utils && mkdir /mnt/scrappers
 WORKDIR /usr/src/environments/api_utils/
-RUN git clone https://github.com/muhbianco/APIUtils.git .
+RUN git clone -b master https://github.com/muhbianco/APIUtils.git .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 RUN chmod +x /usr/src/environments/api_utils/entrypoint.sh
