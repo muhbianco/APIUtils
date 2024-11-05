@@ -1,5 +1,7 @@
 annotated-types==0.7.0
 anyio==4.6.2.post1
+argon2-cffi==23.1.0
+argon2-cffi-bindings==21.2.0
 asttokens==2.4.1
 attrs==24.2.0
 Automat==24.8.1
@@ -48,6 +50,7 @@ markdown-it-py==3.0.0
 MarkupSafe==3.0.1
 matplotlib-inline==0.1.7
 mdurl==0.1.2
+minio==7.2.10
 nest-asyncio==1.6.0
 newspaper3k==0.2.8
 nltk==3.9.1
@@ -65,6 +68,7 @@ pure_eval==0.2.3
 pyasn1==0.6.1
 pyasn1_modules==0.4.1
 pycparser==2.22
+pycryptodome==3.21.0
 pydantic==2.9.2
 pydantic_core==2.23.4
 PyDispatcher==2.0.7
