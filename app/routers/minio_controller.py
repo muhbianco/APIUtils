@@ -28,9 +28,8 @@ logger = logging.getLogger("SmartyUtilsAPI")
 router = APIRouter()
 
 def copy_file(file: UploadFile, temp_dir: str, file_name: str) -> str:
+    temp_file_path = os.path.join(temp_dir, file_name)
     try:
-        temp_file_path = os.path.join(temp_dir, file_name)
-
         with open(temp_file_path, "wb") as temp_file:
             shutil.copyfileobj(file, temp_file)
 
@@ -45,8 +44,8 @@ def copy_file(file: UploadFile, temp_dir: str, file_name: str) -> str:
     return temp_file_path
 
 def unzip_files(file: UploadFile, temp_dir: str) -> list:
+    temp_file_path = os.path.join(temp_dir, file.filename)
     try:
-        temp_file_path = os.path.join(temp_dir, file.filename)
         with open(temp_file_path, "wb") as temp_file:
             shutil.copyfileobj(file.file, temp_file)
         
@@ -134,19 +133,15 @@ def put_object(
 @version(1, 0)
 def put_object(
     request: Request,
-    remoteJid: Annotated[str, Body(title="Numero/RemoteJid")],
-    url: Annotated[str, Body(title="URL do arquivo .enc")],
-    evo_instance_name: Annotated[str, Body(title="Nome da intância do EvolutionAPI")],
-    # bucket_name: Annotated[str, Path(description="Nome do bucket")],
-    # folder_name: Annotated[str, Path(description="Folder do bucket")]
+    payload: Annotated[PutMinIOObject, Body(title="Numero/RemoteJid | URL do arquivo | Nome da intância do EvolutionAPI")],
 ) -> Union[JSONResponse, HTTPException]:
 
     client = get_minio_client()
     bucket_name = "typebot"
-    folder_name = remoteJid
+    folder_name = payload.remoteJid
 
-    find_messages_evo_url = urljoin(os.environ['EVO-API-URL'], f"/chat/findMessages/{evo_instance_name}")
-    get_base64_evo_url = urljoin(os.environ['EVO-API-URL'], f"/chat/getBase64FromMediaMessage/{evo_instance_name}")
+    find_messages_evo_url = urljoin(os.environ['EVO-API-URL'], f"/chat/findMessages/{payload.evo_instance_name}")
+    get_base64_evo_url = urljoin(os.environ['EVO-API-URL'], f"/chat/getBase64FromMediaMessage/{payload.evo_instance_name}")
     evo_headers = {
         "apikey": os.environ["EVO-API-KEY"],
         "Content-Type": "application/json"
@@ -154,7 +149,7 @@ def put_object(
     find_messages_evo_body = {
         "where": {
             "key": {
-                "remoteJid": remoteJid
+                "remoteJid": f"{payload.remoteJid}"
             }
         }
     }
@@ -163,21 +158,17 @@ def put_object(
     mime_type = None
     message_id = None
     for message in json.loads(find_messages_evo_response.text):
-        if message["key"]["remoteJid"] == remoteJid and "messageType" in message:
-            # _message = message["message"].get("audioMessage", message["message"].get("imageMessage"))
-            # if _message and _message["url"] == url:
-            #     logger.info(pformat(message))
+        if message["key"]["remoteJid"] == payload.remoteJid and "messageType" in message:
             message_type = message["messageType"]
             if "url" in message["message"][message_type]:
-                if message["message"][message_type]["url"] == url:
-                    # logger.info(pformat(message))
+                if message["message"][message_type]["url"] == payload.url:
                     message_id = message["key"]["id"]
                     mime_type = message["message"][message_type]["mimetype"]
                     break
 
     # logger.error(message_id)
     if not message_id:
-        return HTTPException(status_code=404, content={"detail": "URL not found"})
+        return HTTPException(status_code=404, content={"detail": "URL or RemoteJid not found"})
     
     get_base64_evo_body = {
         "message": {
@@ -188,7 +179,6 @@ def put_object(
         "convertToMp4": False
     }
     get_base64_evo_response = requests.post(url=get_base64_evo_url, headers=evo_headers, json=get_base64_evo_body)
-    # logger.info(get_base64_evo_response.text)
     base64_evo = json.loads(get_base64_evo_response.text)["base64"]
     file_data = base64.b64decode(base64_evo)
     file_extension = mimetypes.guess_extension(mime_type)
