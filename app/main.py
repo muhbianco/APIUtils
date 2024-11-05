@@ -4,18 +4,31 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_versioning import VersionedFastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.routers import web_scrappy
+from app.routers import minio_controller
 
-import asyncio
+import logging
 
 load_dotenv()
 
-description = """MuhUtilsAPI"""
-summary = "API de utilidades Muhbianco"
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("SmartyUtilsAPI")
+
+description = """SmartyUtilsAPI"""
+summary = "API de utilidades SmartyFlow"
 
 tags_metadata = [
-    {"name": "MuhScrapper", "description": "Web scrappy"},
+    {"name": "SmartyScrapper", "description": "Web scrappy"},
+    {"name": "SmartyMinIO", "description": "MinIO Controller"},
 ]
 
 app_base = FastAPI(
@@ -31,10 +44,18 @@ app_base.add_middleware(
     allow_headers=["*"],
 )
 
+# WebScrapp
 app_base.include_router(
     web_scrappy.router,
-    tags=["MuhScrapper"],
+    tags=["SmartyScrapper"],
     prefix="/web_scrappy",
+)
+
+# MinIO
+app_base.include_router(
+    minio_controller.router,
+    tags=["SmartyMinIO"],
+    prefix="/minio",
 )
 
 app = VersionedFastAPI(
@@ -54,4 +75,5 @@ app = VersionedFastAPI(
 # def shutdown_event():
 #     QuestionNPC.close()
 
-# app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+logger.info("Static files mounted at /static")
