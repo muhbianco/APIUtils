@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import re
 import requests
+import logging
 
 from datetime import datetime
 from typing_extensions import TypedDict
