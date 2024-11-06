@@ -31,6 +31,7 @@ from newspaper import Article
 
 from app.schemas.scrappy import ScrappyEmails, TypeResponse
 
+logger = logging.getLogger("SmartyUtilsAPI")
 asyncioreactor.install()
 router = APIRouter()
 
@@ -203,7 +204,7 @@ class TextSpider(scrapy.Spider):
                     theme = response.xpath(
                     '//div[@class="group"]/div[@class="tit" and normalize-space(text())="Tema(s):"]/following-sibling::div[@class="text"]/text()'
                     ).get()
-                    file_name = f"{self.file_id}_editals.txt"
+                    file_name = f"{self.file_id}_finep_editals.txt"
                     file_path = f"{prefix_dir}/{file_name}"
                     content = f"""
 URL: {url}
