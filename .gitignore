@@ -4,3 +4,5 @@ __pycache__/
 stacks/
 *.log
 .env
+.env.prod
+.env.dev

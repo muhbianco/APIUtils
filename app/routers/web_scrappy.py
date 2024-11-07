@@ -475,14 +475,17 @@ def get_editals(
     if payload.existing_file:
         file_prefix = payload.existing_file.split("_")[0]
         response = WaitReponse(file_prefix, payload.type_response, "get_editals", test_file=payload.existing_file)
-        send_email_with_attachment(
-            sender_email=os.environ["SMTP-SENDER"],
-            receiver_email=payload.response_email, 
-            subject="Editais 2024",
-            body="",
-            attachments=response.object_content
-        )
-        return response.object_content
+        if payload.response_email:
+            send_email_with_attachment(
+                sender_email=os.environ["SMTP-SENDER"],
+                receiver_email=payload.response_email, 
+                subject="Editais 2024",
+                body="",
+                attachments=response.object_content
+            )
+            return JSONResponse(status_code=201, content={"detail": "Process successfully started."})
+        else:
+            return response.object_content
     
     start_date = validate_date(payload.start_date)
     config = {
