@@ -1,17 +1,5 @@
 FROM python:3.12.3-alpine
 ARG APP_ENV=dev
-
-ENV MINIO_ACCESS_KEY
-ENV MINIO_SECRET_KEY
-ENV MINIO_URL
-ENV EVO_API_URL
-ENV EVO_API_KEY
-ENV SMTP_HOST
-ENV SMTP_USER
-ENV SMTP_PASS
-ENV SMTP_PORT
-ENV SMTP_SENDER
-
 RUN apk upgrade
 RUN apk add gcc build-base python3-dev musl-dev \
 			libc-dev libcurl curl-dev gpgme-dev make libmagic jpeg-dev \
