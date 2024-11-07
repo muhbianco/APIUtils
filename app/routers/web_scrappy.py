@@ -55,7 +55,6 @@ class WaitReponse:
                 file_response_path = file_path
                 if file_path.endswith(".txt"):
                     file_response_path = file_path.replace(".txt", ".pdf")
-                    logger.error(f"file_response_path: {file_response_path}")
                     txt_to_pdf(file_path, file_response_path)
                 self.object_content.append(
                     FileResponse(
@@ -132,7 +131,6 @@ def send_email_with_attachment(sender_email: str, receiver_email: str, subject: 
 
     try:
         for _attach in attachments:
-            logger.error(f"_attach: {_attach.__dict__}")
             with open(_attach.path, 'rb') as f:
                 file_data = f.read()
                 file_name = f.name
@@ -160,12 +158,13 @@ def txt_to_pdf(txt_file, pdf_file):
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=10)
     pdf.add_font(fname=r'fonts/DejaVuSansCondensed.ttf')
-    pdf.set_font('DejaVuSansCondensed', size=12)
+    pdf.set_font('DejaVuSansCondensed', size=10)
+    effective_page_width = pdf.w - 2 * pdf.l_margin
     
     # Abre o arquivo .txt e adiciona cada linha ao PDF
     with open(txt_file, "r", encoding="utf-8") as file:
-        for line in file:
-            pdf.cell(200, 10, txt=line.strip(), ln=True)
+        text = file.read()
+        pdf.multi_cell(effective_page_width, 10, txt=text)
     
     # Salva o PDF
     pdf.output(pdf_file)
