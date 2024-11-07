@@ -22,11 +22,11 @@ WORKDIR /usr/src/environments/api_utils/
 RUN git clone -b master https://github.com/muhbianco/APIUtils.git .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
-# RUN if [ "$APP_ENV" = "dev" ]; then \
-# 	cp .env.dev .env; \
-#     else \
-# 	cp .env.prod .env; \
-#     fi
+RUN if [ "$APP_ENV" = "dev" ]; then \
+	cp .env.dev .env; \
+     else \
+	cp .env.prod .env; \
+     fi
 COPY .env.example .env
 RUN chmod +x /usr/src/environments/api_utils/entrypoint.sh
 ENTRYPOINT ["/usr/src/environments/api_utils/entrypoint.sh"]
