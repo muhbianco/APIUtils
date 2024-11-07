@@ -122,7 +122,7 @@ def put_object(
 
         return JSONResponse(status_code=200, content={"details": response_urls})
     except Exception as e:
-        return HTTPException(status_code=400, content={"detail": str(e)})
+        return HTTPException(status_code=400, detail=str(e))
 
 
 @router.put(
@@ -168,7 +168,7 @@ def put_object(
 
     # logger.error(message_id)
     if not message_id:
-        return HTTPException(status_code=404, content={"detail": "URL or RemoteJid not found"})
+        return HTTPException(status_code=404, detail="URL or RemoteJid not found")
     
     get_base64_evo_body = {
         "message": {
