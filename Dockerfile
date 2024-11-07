@@ -1,5 +1,5 @@
 FROM python:3.12.3-alpine
-ARG APP_ENV=dev
+ARG ENV_FILE
 RUN apk upgrade
 RUN apk add gcc build-base python3-dev musl-dev \
 			libc-dev libcurl curl-dev gpgme-dev make libmagic jpeg-dev \
@@ -8,13 +8,8 @@ RUN apk add gcc build-base python3-dev musl-dev \
 RUN mkdir -p /usr/src/environments/api_utils && mkdir /mnt/scrappers
 WORKDIR /usr/src/environments/api_utils/
 RUN git clone -b master https://github.com/muhbianco/APIUtils.git .
+COPY $ENV_FILE .env
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
-RUN if [ "$APP_ENV" = "dev" ]; then \
-	cp .env.dev .env; \
-     else \
-	cp .env.prod .env; \
-     fi
-COPY .env.example .env
 RUN chmod +x /usr/src/environments/api_utils/entrypoint.sh
 ENTRYPOINT ["/usr/src/environments/api_utils/entrypoint.sh"]
