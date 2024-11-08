@@ -154,19 +154,20 @@ def put_object(
         }
     }
     find_messages_evo_response = requests.post(url=find_messages_evo_url, headers=evo_headers, json=find_messages_evo_body)
+    logger.info(find_messages_evo_response.__dict__)
 
     mime_type = None
     message_id = None
-    for message in json.loads(find_messages_evo_response.text):
-        if message["key"]["remoteJid"] == payload.remoteJid and "messageType" in message:
-            message_type = message["messageType"]
-            if "url" in message["message"][message_type]:
-                if message["message"][message_type]["url"] == payload.url:
-                    message_id = message["key"]["id"]
-                    mime_type = message["message"][message_type]["mimetype"]
-                    break
+    if find_messages_evo_response.status_code == 200:
+        for message in json.loads(find_messages_evo_response.text):
+            if message["key"]["remoteJid"] == payload.remoteJid and "messageType" in message:
+                message_type = message["messageType"]
+                if "url" in message["message"][message_type]:
+                    if message["message"][message_type]["url"] == payload.url:
+                        message_id = message["key"]["id"]
+                        mime_type = message["message"][message_type]["mimetype"]
+                        break
 
-    # logger.error(message_id)
     if not message_id:
         return HTTPException(status_code=404, detail="URL or RemoteJid not found")
     
@@ -179,13 +180,14 @@ def put_object(
         "convertToMp4": False
     }
     get_base64_evo_response = requests.post(url=get_base64_evo_url, headers=evo_headers, json=get_base64_evo_body)
-    base64_evo = json.loads(get_base64_evo_response.text)["base64"]
-    file_data = base64.b64decode(base64_evo)
-    file_extension = mimetypes.guess_extension(mime_type)
-    file_name = f"{uuid.uuid4()}{file_extension}"
-    with tempfile.TemporaryDirectory() as file_path:
-        local_file_path = copy_file(file_data, file_path, file_name)
-        minio_put_object(client, local_file_path, file_name, bucket_name, folder_name)
-        url_response = quote(f"https://{os.environ['MINIO-URL']}/api/v1/buckets/{bucket_name}/objects/download?preview=true&prefix={folder_name}/{file_name}&version_id=null")
+    if get_base64_evo_response.status_code == 200:
+        base64_evo = json.loads(get_base64_evo_response.text)["base64"]
+        file_data = base64.b64decode(base64_evo)
+        file_extension = mimetypes.guess_extension(mime_type)
+        file_name = f"{uuid.uuid4()}{file_extension}"
+        with tempfile.TemporaryDirectory() as file_path:
+            local_file_path = copy_file(file_data, file_path, file_name)
+            minio_put_object(client, local_file_path, file_name, bucket_name, folder_name)
+            url_response = quote(f"https://{os.environ['MINIO-URL']}/api/v1/buckets/{bucket_name}/objects/download?preview=true&prefix={folder_name}/{file_name}&version_id=null")
 
-    return JSONResponse(status_code=200, content=url_response)
+        return JSONResponse(status_code=200, content=url_response)

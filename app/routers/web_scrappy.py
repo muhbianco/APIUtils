@@ -238,7 +238,7 @@ class TextSpider(scrapy.Spider):
     allowed_domains: List[str] = []
 
     def __init__(
-        self, urls: str, file_id: str, method: str, full_site: bool = False, config: dict = {},
+        self, urls: str, file_id: str, method: str, full_site: bool = False, config: EditalsPayload = None,
     ):
         self.start_urls = urls
         self.allowed_domains = ["proxy.scrapeops.io"]
@@ -304,6 +304,17 @@ class TextSpider(scrapy.Spider):
             emails = extract_emails(page_text)
             file_name = f"{self.file_id}_emails.txt"
             file_path = f"{prefix_dir}/{file_name}"
+            if self.full_site:
+                for _next_page in response.css("a::attr(href)").extract():
+                    logger.info(f"LINK ENCONTRADO: {_next_page}")
+                    next_url = urljoin(f"http://{self.parsed_url.netloc}", _next_page)
+                    logger.info(f"PROXIMA PAGINA: {next_url}")
+                    yield SplashRequest(
+                        get_scrapeops_url(next_url),
+                        self.parse,
+                        headers=self.HEADERS,
+                        args={"wait": 5},
+                    )
             with open(file_path, "a") as f:
                 for email in emails:
                     if email not in self.email_list:
@@ -379,7 +390,7 @@ class TextSpider(scrapy.Spider):
             raise HTTPException(status_code=400, detail="Method not allowed")
         
         
-def filter_edital(filter_config: dict, edital_config: dict) -> bool:
+def filter_edital(filter_config: EditalsPayload, edital_config: dict) -> bool:
     today = datetime.today().date()
     publication_date = None
     proposal_deadline = None
@@ -392,15 +403,15 @@ def filter_edital(filter_config: dict, edital_config: dict) -> bool:
         if today > proposal_deadline:
             return False
     if publication_date:
-        if publication_date < filter_config["start_date"]:
+        if publication_date < filter_config.start_date:
             return False
-    if filter_config["tags"]:
-        if not any(tag in edital_config["theme"] for tag in filter_config["tags"]) and not any(tag in edital_config["title"] for tag in filter_config["tags"]):
+    if filter_config.tags:
+        if not any(tag in edital_config["theme"] for tag in filter_config.tags) and not any(tag in edital_config["title"] for tag in filter_config.tags):
             return False
     return True
 
 
-def run_crawler(urls: list, file_id: str, full_site: bool, method: str, error_queue: multiprocessing.Queue, config: dict = {}):
+def run_crawler(urls: list, file_id: str, full_site: bool, method: str, error_queue: multiprocessing.Queue, config: EditalsPayload = None):
     Settings()
     crawler = CrawlerProcess(
         settings={
@@ -421,11 +432,11 @@ def run_crawler(urls: list, file_id: str, full_site: bool, method: str, error_qu
 
     crawler.crawl(TextSpider, urls, file_id, method, full_site=full_site, config=config)
     crawler.start()
-    if config["response_email"]:
-        crawler_response = WaitReponse(file_id, config["type_response"], "get_editals")
+    if config and config.response_email:
+        crawler_response = WaitReponse(file_id, config.type_response, "get_editals")
         send_email_with_attachment(
             sender_email=os.environ["SMTP-SENDER"],
-            receiver_email=config["response_email"], 
+            receiver_email=config.response_email, 
             subject="Editais 2024",
             body="",
             attachments=crawler_response.object_content
@@ -486,13 +497,9 @@ def get_editals(
         else:
             return response.object_content
     
-    start_date = validate_date(payload.start_date)
-    config = {
-        "start_date": start_date,
-        "tags": payload.filter_tags,
-        "type_response": payload.type_response,
-        "response_email": payload.response_email,
-    }
+    if payload.start_date:
+        payload.start_date = validate_date(payload.start_date)
+
     start_urls: List[str] = [
         "http://www.finep.gov.br/chamadas-publicas?situacao=aberta&start=0",
         # "https://www.inovativabrasil.com.br/editais/",
@@ -508,7 +515,7 @@ def get_editals(
     file_prefix = str(uuid.uuid4())
     process = multiprocessing.Process(
         target=run_crawler,
-        args=(urls, file_prefix, False, "get_editals", error_queue, config)
+        args=(urls, file_prefix, False, "get_editals", error_queue, payload)
     )
     process.start()
 

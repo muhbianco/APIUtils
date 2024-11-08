@@ -15,7 +15,7 @@ class EditalsResponse(str, Enum):
 
 
 class EditalsPayload(BaseModel):
-    start_date: str
+    start_date: str | None = None
     type_response: EditalsResponse = EditalsResponse.PDF
     filter_tags: List[str] = []
     response_email: str | None = None
