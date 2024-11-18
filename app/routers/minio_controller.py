@@ -154,7 +154,7 @@ def put_object(
         }
     }
     find_messages_evo_response = requests.post(url=find_messages_evo_url, headers=evo_headers, json=find_messages_evo_body)
-    logger.info(find_messages_evo_response.__dict__)
+    # logger.info(find_messages_evo_response.__dict__)
 
     mime_type = None
     message_id = None
@@ -180,6 +180,8 @@ def put_object(
         "convertToMp4": False
     }
     get_base64_evo_response = requests.post(url=get_base64_evo_url, headers=evo_headers, json=get_base64_evo_body)
+    print("------------------------------")
+    logger.info(get_base64_evo_response.__dict__)
     if get_base64_evo_response.status_code == 200:
         base64_evo = json.loads(get_base64_evo_response.text)["base64"]
         file_data = base64.b64decode(base64_evo)

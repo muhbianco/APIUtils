@@ -1,17 +1,20 @@
+import logging
 
 from dotenv import load_dotenv
+load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_versioning import VersionedFastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.routers import web_scrappy
 from app.routers import minio_controller
+from app.routers import auth
 
-import logging
+from app.utils.auth import get_current_user
+from app.utils.db import DB
 
-load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,11 +47,18 @@ app_base.add_middleware(
     allow_headers=["*"],
 )
 
+app_base.include_router(
+    auth.router,
+    tags=["SmartyAuth"],
+    dependencies=[Depends(DB)]
+)
+
 # WebScrapp
 app_base.include_router(
     web_scrappy.router,
     tags=["SmartyScrapper"],
     prefix="/web_scrappy",
+    dependencies=[Depends(get_current_user), Depends(DB)]
 )
 
 # MinIO
@@ -56,6 +66,7 @@ app_base.include_router(
     minio_controller.router,
     tags=["SmartyMinIO"],
     prefix="/minio",
+    dependencies=[Depends(get_current_user), Depends(DB)]
 )
 
 app = VersionedFastAPI(
