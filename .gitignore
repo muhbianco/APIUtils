@@ -6,4 +6,3 @@ stacks/
 .env
 .env.prod
 .env.dev
-migrations/versions

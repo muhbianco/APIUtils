@@ -22,11 +22,19 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 async def get_users(db):
-    logger.info("chamando")
     sql = "SELECT * FROM users"
     users = await db.fetch(sql=sql)
-    logger.info(users)
-    return users
+    users_mapping = {
+        user["user_name"]: {
+            "username": user["user_name"],
+            "full_name": user["full_name"],
+            "email": user["email"],
+            "hashed_password": user["pass"],
+            "disabled": user["disable"]
+        }
+        for user in users
+    }
+    return users_mapping
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)

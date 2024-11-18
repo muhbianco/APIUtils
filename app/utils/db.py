@@ -47,7 +47,7 @@ class DB:
         async with connect(**self.config) as conn:
             async with conn.cursor(cursor=DictCursor) as cursor:
                 await cursor.execute(sql, args)
-                rows = await cursor.fetchall() if cursor.with_rows else []
+                rows = await cursor.fetchall()
                 return rows
 
     async def fetchone(self, sql, args: tuple = ()):
@@ -67,7 +67,5 @@ class DB:
             
 def get_session():
     db = DB()
-    try:
-        yield db
-    finally:
-        db.close()
+    yield db
+    

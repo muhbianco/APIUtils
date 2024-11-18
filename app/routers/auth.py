@@ -16,7 +16,6 @@ router = APIRouter()
 @router.post("/token")
 @version(1, 0)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(get_session)):
-    logger.info("???????")
     users_db = await get_users(db)
     logger.info(users_db)
     user = authenticate_user(users_db, form_data.username, form_data.password)
