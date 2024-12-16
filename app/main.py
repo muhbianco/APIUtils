@@ -1,16 +1,19 @@
+import logging
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_versioning import VersionedFastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.routers.kommo import leads
+from app.routers.kommo import pipelines
+from app.routers.kommo import tags
+from app.routers import auth
 
-import logging
-
+from app.utils.auth import get_current_user
 
 
 logging.basicConfig(
@@ -43,11 +46,29 @@ app_base.add_middleware(
     allow_headers=["*"],
 )
 
-# WebScrapp
+app_base.include_router(
+    auth.router,
+    tags=["AhTerezaAUTH"]
+)
+
+
 app_base.include_router(
     leads.router,
     tags=["AhTerezaKOMMO"],
+    prefix="/kommo/leads",
+    dependencies=[Depends(get_current_user)]
+)
+app_base.include_router(
+    pipelines.router,
+    tags=["AhTerezaKOMMO"],
     prefix="/kommo",
+    dependencies=[Depends(get_current_user)]
+)
+app_base.include_router(
+    tags.router,
+    tags=["AhTerezaKOMMO"],
+    prefix="/kommo/tags",
+    dependencies=[Depends(get_current_user)]
 )
 
 app = VersionedFastAPI(
