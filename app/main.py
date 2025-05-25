@@ -8,9 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi_versioning import VersionedFastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import web_scrappy
-from app.routers import minio_controller
 from app.routers import auth
+from app.routers import customers
 
 from app.utils.auth import get_current_user
 from app.utils.db import DB
@@ -24,14 +23,14 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger("SmartyUtilsAPI")
+logger = logging.getLogger("UtilsAPI")
 
-description = """SmartyUtilsAPI"""
-summary = "API de utilidades SmartyFlow"
+description = """UtilsAPI"""
+summary = "API de utilidades Flow"
 
 tags_metadata = [
-    {"name": "SmartyScrapper", "description": "Web scrappy"},
-    {"name": "SmartyMinIO", "description": "MinIO Controller"},
+    {"name": "Customers", "description": "Gerenciamento de clientes."},
+    # {"name": "MinIO", "description": "MinIO Controller"},
 ]
 
 app_base = FastAPI(
@@ -49,23 +48,14 @@ app_base.add_middleware(
 
 app_base.include_router(
     auth.router,
-    tags=["SmartyAuth"],
+    tags=["Auth"],
     dependencies=[Depends(DB)]
 )
 
-# WebScrapp
 app_base.include_router(
-    web_scrappy.router,
-    tags=["SmartyScrapper"],
-    prefix="/web_scrappy",
-    dependencies=[Depends(get_current_user), Depends(DB)]
-)
-
-# MinIO
-app_base.include_router(
-    minio_controller.router,
-    tags=["SmartyMinIO"],
-    prefix="/minio",
+    customers.router,
+    tags=["Customers"],
+    prefix="/customers",
     dependencies=[Depends(get_current_user), Depends(DB)]
 )
 

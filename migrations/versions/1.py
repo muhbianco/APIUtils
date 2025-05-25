@@ -34,7 +34,7 @@ async def up():
 	await db.insert(f"""
 		INSERT INTO users (user_name, full_name, email, pass, disable)
 		VALUES
-		('admin', 'Admin', 'smartyflow@gmail.com', '{hashed_password}', 0)
+		('admin', 'Admin', 'muhbianco@gmail.com', '{hashed_password}', 0)
 	""")
 
 async def down():
