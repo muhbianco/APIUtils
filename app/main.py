@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.routers import auth
 from app.routers import customers
+from app.routers import mia_sexyshop
 
 from app.utils.auth import get_current_user
 from app.utils.db import DB
@@ -30,7 +31,7 @@ summary = "API de utilidades Flow"
 
 tags_metadata = [
     {"name": "Customers", "description": "Gerenciamento de clientes."},
-    # {"name": "MinIO", "description": "MinIO Controller"},
+    {"name": "MIA - SexyShop", "description": "Endpoints da empresa MIA - SexyShop"},
 ]
 
 app_base = FastAPI(
@@ -56,6 +57,13 @@ app_base.include_router(
     customers.router,
     tags=["Customers"],
     prefix="/customers",
+    dependencies=[Depends(get_current_user), Depends(DB)]
+)
+
+app_base.include_router(
+    mia_sexyshop.router,
+    tags=["Mia - SexyShop"],
+    prefix="/mia_sexyshop",
     dependencies=[Depends(get_current_user), Depends(DB)]
 )
 
