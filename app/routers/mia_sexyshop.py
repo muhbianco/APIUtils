@@ -25,7 +25,7 @@ from typing_extensions import TypedDict
 
 from app.utils.db import get_session
 from app.utils.auth import scopes
-from app.utils.prompts import DEFAULT_PERSONA_MIA, DEFAULT_QUESTION_MIA
+from app.utils.prompts import DEFAULT_PERSONA_MIA, DEFAULT_QUESTION_MIA, CATEGORY_IDENTIFY_MIA
 from app.schemas.woocommerce import GetProductFind
 
 
@@ -144,13 +144,29 @@ async def product_find(
     _gemini_client()
     conversation_gemini_client = _gemini_new_client()
 
+    generation_config = {
+        "temperature": 0.7,
+        "top_p": 1,
+        "top_k": 1,
+        "max_output_tokens": 4096,
+        "system_instruction": DEFAULT_PERSONA_MIA
+    }
+
+    # Identificando a categoria do produto de acordo com a descrição do usuário
+    identify_prompt = CATEGORY_IDENTIFY_MIA.replace("{{USER_QUESTION}}", payload.question)
+    response = conversation_gemini_client.models.generate_content(
+        model='models/gemini-2.5-flash',
+        contents=identify_prompt,
+        config=types.GenerateContentConfig(**generation_config)
+    )
+
     while True:
         try:
             response = qrant.search(
                 collection_name="sexyshop",
                 query_vector=gemini_client.embed_content(
                     model="models/text-embedding-004",
-                    content=payload.question,
+                    content=response.text,
                     task_type="retrieval_query",
                 )["embedding"],
             )
@@ -174,29 +190,21 @@ async def product_find(
         stock = product[stock_start:].strip()
 
         product_data = f"""
-====================================    
-Nome: {name}
-Descrição: {desc}
-Estoque: {stock}"""
+        ====================================    
+        Nome: {name}
+        Descrição: {desc}
+        Estoque: {stock}"""
 
         list_products.append(product_data)
 
-    prompt = f"""{DEFAULT_PERSONA_MIA}
-    {DEFAULT_QUESTION_MIA}
+    prompt = f"""{DEFAULT_QUESTION_MIA}
 
     CATÁLOGO DE PRODUTOS:
     {"".join(list_products)}
 
     PERGUNTA DO CLIENTE:
-    {payload.question}
-    """
+    {payload.question}"""
 
-    generation_config = {
-        "temperature": 0.7,
-        "top_p": 1,
-        "top_k": 1,
-        "max_output_tokens": 4096,
-    }
     response = conversation_gemini_client.models.generate_content(
         model='models/gemini-2.5-flash',
         contents=prompt,
