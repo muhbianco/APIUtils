@@ -72,7 +72,7 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db = Depends(get_session)):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token.strip(), SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         permissions: list = payload.get("perm")
         if username is None:
@@ -87,8 +87,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db = Depends(get
 async def scopes(security_scopes: SecurityScopes, token: str = Depends(oauth2_scheme), db = Depends(get_session)):
     user = await get_current_user(token, db)
     user_scopes: list = user["permissions"]
-    # logging.info(f"[scopes] user scopes {user['permissions']}")
-    # logging.info(f"[scopes] required scopes {security_scopes.scopes}")
 
     for scope in security_scopes.scopes:
         if "::" not in scope:

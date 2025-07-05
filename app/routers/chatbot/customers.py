@@ -20,12 +20,8 @@ router = APIRouter()
 )
 @version(1, 0)
 async def create_customer(
-    # token: Annotated[
-    #     JWTAuthorizationCredentials,
-    #     Security(scoped_auth, scopes=["owner", "accountcode::add"]),
-    # ],
     # payload: Annotated[AccountcodeBase, Body(title="Dados da nova conta.")],
-    token: Annotated[None,Security(scopes, scopes=["customer::read"])],
+    token: Annotated[None, Security(scopes, scopes=["customer::read"])],
     db = Depends(get_session),
 ):
     """

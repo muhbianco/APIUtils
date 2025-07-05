@@ -9,8 +9,8 @@ from fastapi_versioning import VersionedFastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.routers import auth
-from app.routers import customers
-from app.routers import mia_sexyshop
+from app.routers.chatbot import customers, conversation
+from app.routers.mia import mia_sexyshop
 
 from app.utils.auth import get_current_user
 from app.utils.db import DB
@@ -30,7 +30,7 @@ description = """UtilsAPI"""
 summary = "API de utilidades Flow"
 
 tags_metadata = [
-    {"name": "Customers", "description": "Gerenciamento de clientes."},
+    {"name": "Muhbianco - CHATBOT", "description": "Gerenciamento da aplicação CHATBOT."},
     {"name": "MIA - SexyShop", "description": "Endpoints da empresa MIA - SexyShop"},
 ]
 
@@ -55,8 +55,15 @@ app_base.include_router(
 
 app_base.include_router(
     customers.router,
-    tags=["Customers"],
+    tags=["Muhbianco - CHATBOT - Customers"],
     prefix="/customers",
+    dependencies=[Depends(get_current_user), Depends(DB)]
+)
+
+app_base.include_router(
+    conversation.router,
+    tags=["Muhbianco - CHATBOT - Conversation"],
+    prefix="/conversation",
     dependencies=[Depends(get_current_user), Depends(DB)]
 )
 
