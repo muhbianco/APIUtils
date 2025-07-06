@@ -25,7 +25,7 @@ from redis.exceptions import TimeoutError as RedisTimeoutError
 router = APIRouter()
 
 def _redis_client() -> redis.Redis:
-    return redis.Redis(host='redis', port=6379, db=4, socket_timeout=10)
+    return redis.Redis(host=os.environ.get("REDIS_HOST"), port=6379, db=4, socket_timeout=10)
 
 def _gemini_new_client() -> genai.Client:
     return genai.Client(api_key=os.environ.get("GOOGLE_GEMINI_API_KEY"))
@@ -57,6 +57,7 @@ def _save_memory(chat: genai.Client.chats, chat_id: str) -> None:
             }
             messages.append(json.dumps(data))
     redis.rpush(chat_id, *messages)
+
 
 @router.post(
     "/",
