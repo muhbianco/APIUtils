@@ -1,6 +1,5 @@
 import os
 import requests
-import urllib
 
 from pprint import pprint
 
@@ -11,6 +10,7 @@ from app.utils.db import get_session
 from app.utils.auth import scopes
 from app.utils.wuzapi import whatsapp #TROCAR ESSE IMPORT PARA TROCAR DE BACKEND
 from app.utils.typebot import typebot
+from app.utils.typebot.typebot import TypeBot
 
 from app.errors.http_errors import CustomHTTPException
 
@@ -48,14 +48,20 @@ async def events_incoming(
 	if data["from_me"]:
 		raise CustomHTTPException.message_from_bot()
 
-	pprint(data)
+	typebot_client = TypeBot(data, db)
 
 	if data["event_type"] == "Message":
 
-		typebot_session = await typebot.sessions.get_active_session(data, db)
-
+		typebot_session = await typebot_client.get_active_session()
 		if not typebot_session:
-			
-			typebot_response = await typebot.sessions.startChat(data, db)
-			messages = await typebot.tools.messages_normalizer(typebot_response)
-			await whatsapp.tools.sender(messages)
+
+			try:
+				typebot_response = await typebot_client.start_chat()
+				messages = await typebot.tools.messages_normalizer(typebot_response)
+				await whatsapp.tools.sender(messages, data)
+				# await typebot_client.save_session()
+				# await db.commit()
+			except Exception as e:
+				await db.rollback()
+				raise e
+

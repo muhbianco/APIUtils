@@ -9,7 +9,7 @@ import logging
 projeto_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(projeto_dir)
 
-from app.utils.db import DB
+from migrations.db.db import DB
 
 logging.basicConfig(
     level=logging.INFO,
@@ -95,7 +95,7 @@ class DbUpgrade:
             
                 if hasattr(module, "up"):
                     print(f"Running up() method from {file_name}")
-                    await module.up()
+                    await module.up(db)
 
                 await self.save_target_version(module_version)
             except Exception as e:
@@ -104,6 +104,7 @@ class DbUpgrade:
 
 
     async def run_down(self, target_version: int):
+        print("target_version", target_version)
         current_version = await self.get_schema_version()
         files = await self.get_modules_versions("down", self.versions_dir, current_version, target_version)
 
@@ -122,7 +123,7 @@ class DbUpgrade:
             
             if hasattr(module, "down"):
                 print(f"Running down() method from {file_name}")
-                await module.down()
+                await module.down(db)
 
         await self.save_target_version(target_version)
 

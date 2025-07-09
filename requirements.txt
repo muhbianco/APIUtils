@@ -1,3 +1,7 @@
+aiohappyeyeballs==2.6.1
+aiohttp==3.12.13
+aiomysql==0.2.0
+aiosignal==1.4.0
 annotated-types==0.7.0
 anyio==4.9.0
 argon2-cffi==23.1.0
@@ -31,6 +35,7 @@ feedparser==6.0.11
 filelock==3.16.1
 fonttools==4.54.1
 fpdf2==2.8.1
+frozenlist==1.7.0
 google-ai-generativelanguage==0.6.15
 google-api-core==2.25.1
 google-api-python-client==2.173.0
@@ -70,6 +75,7 @@ MarkupSafe==3.0.1
 matplotlib-inline==0.1.7
 mdurl==0.1.2
 minio==7.2.10
+multidict==6.6.3
 mypy==1.16.1
 mypy_extensions==1.1.0
 nest-asyncio==1.6.0
@@ -86,6 +92,7 @@ pillow==11.0.0
 platformdirs==4.3.6
 portalocker==2.10.1
 prompt_toolkit==3.0.48
+propcache==0.3.2
 Protego==0.3.1
 proto-plus==1.26.1
 protobuf==5.29.5
@@ -100,6 +107,7 @@ pydantic==2.9.2
 pydantic_core==2.23.4
 PyDispatcher==2.0.7
 Pygments==2.18.0
+PyMySQL==1.1.1
 pyOpenSSL==24.2.1
 pyparsing==3.2.3
 python-dateutil==2.9.0.post0
@@ -147,4 +155,5 @@ watchfiles==0.24.0
 wcwidth==0.2.13
 websockets==13.1
 wheel==0.45.0
+yarl==1.20.1
 zope.interface==7.1.0

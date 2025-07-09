@@ -21,3 +21,17 @@ class CustomHTTPException:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"status": "Error", "message": "Missing 'typebot_public_id' in request."}
         )
+
+    @staticmethod
+    def missing_typebot_placeholder():
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"status": "Error", "message": "Missing 'placeholder' in typebot input request."}
+        )
+
+    @staticmethod
+    def whatsapp_sender_error(whatsapp_response):
+        return HTTPException(
+            status_code=whatsapp_response["code"],
+            detail={"status": "Error", "message": whatsapp_response["error"]}
+        )

@@ -1,71 +1,79 @@
 import os
-
+import aiomysql
 from dotenv import load_dotenv
-load_dotenv()
 
-from asyncmy import connect
-from asyncmy.cursors import DictCursor
+load_dotenv()
 
 
 class DB:
-    config = {
-        "host": os.environ["DATABASE_HOST"],
-        "user": os.environ["DATABASE_USER"],
-        "password": os.environ["DATABASE_PASS"],
-        "database": os.environ["DATABASE_NAME"],
-    }
+    def __init__(self):
+        self.config = {
+            "host": os.environ["DATABASE_HOST"],
+            "user": os.environ["DATABASE_USER"],
+            "password": os.environ["DATABASE_PASS"],
+            "db": os.environ["DATABASE_NAME"],
+        }
+        self.connection = None
 
-    async def query(self, sql, args: tuple = ()):
-        async with connect(**self.config) as conn:
-            async with conn.cursor() as cursor:
-                await cursor.execute(sql, args)
-                await conn.commit()
+    async def connect(self):
+        if not self.connection:
+            self.connection = await aiomysql.connect(**self.config)
 
-    async def insert(self, sql, args: tuple = ()):
-        async with connect(**self.config) as conn:
-            async with conn.cursor() as cursor:
-                await cursor.execute(sql, args)
-                await conn.commit()
-                return cursor.lastrowid
+    async def close(self):
+        if self.connection:
+            self.connection.close()
 
-    async def insertmany(self, sql, args: tuple = ()):
-        async with connect(**self.config) as conn:
-            async with conn.cursor() as cursor:
-                await cursor.executemany(sql, args)
-                await conn.commit()
-                return cursor.rowcount
+    async def execute(self, sql, args=()):
+        await self.connect()
+        async with self.connection.cursor(aiomysql.DictCursor) as cursor:
+            await cursor.execute(sql, args)
+            return cursor
 
-    async def update(self, sql, args: tuple = ()):
-        async with connect(**self.config) as conn:
-            async with conn.cursor() as cursor:
-                await cursor.execute(sql, args)
-                rowcount = cursor.rowcount
-                await conn.commit()
-                return rowcount
+    async def commit(self):
+        if self.connection:
+            await self.connection.commit()
 
-    async def fetch(self, sql, args: tuple = ()):
-        async with connect(**self.config) as conn:
-            async with conn.cursor(cursor=DictCursor) as cursor:
-                await cursor.execute(sql, args)
-                rows = await cursor.fetchall()
-                return rows
+    async def rollback(self):
+        if self.connection:
+            await self.connection.rollback()
 
-    async def fetchone(self, sql, args: tuple = ()):
-        async with connect(**self.config) as conn:
-            async with conn.cursor(cursor=DictCursor) as cursor:
-                await cursor.execute(sql, args)
-                row = await cursor.fetchone()
-                return row
+    async def insert(self, sql, args=()):
+        cursor = await self.execute(sql, args)
+        lastrowid = cursor.lastrowid
+        await cursor.close()
+        return lastrowid
 
-    async def delete(self, sql, args: tuple = ()):
-        async with connect(**self.config) as conn:
-            async with conn.cursor(cursor=DictCursor) as cursor:
-                await cursor.execute(sql, args)
-                rowcount = cursor.rowcount
-                await conn.commit()
-                return rowcount
-            
+    async def insertmany(self, sql, args=()):
+        cursor = await self.execute(sql, args)
+        rowcount = cursor.rowcount
+        await cursor.close()
+        return rowcount
+
+    async def update(self, sql, args=()):
+        cursor = await self.execute(sql, args)
+        rowcount = cursor.rowcount
+        await cursor.close()
+        return rowcount
+
+    async def fetch(self, sql, args=()):
+        cursor = await self.execute(sql, args)
+        rows = await cursor.fetchall()
+        await cursor.close()
+        return rows
+
+    async def fetchone(self, sql, args=()):
+        cursor = await self.execute(sql, args)
+        row = await cursor.fetchone()
+        await cursor.close()
+        return row
+
+    async def delete(self, sql, args=()):
+        cursor = await self.execute(sql, args)
+        rowcount = cursor.rowcount
+        await cursor.close()
+        return rowcount
+
+
 def get_session():
     db = DB()
     yield db
-    

@@ -8,11 +8,7 @@ from passlib.context import CryptContext
 projeto_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.append(projeto_dir)
 
-from app.utils.db import DB
-
-db = DB()
-
-async def up():
+async def up(db):
 	await db.query("""
 		CREATE TABLE IF NOT EXISTS users_permissions (
 			id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -31,5 +27,5 @@ async def up():
 		((SELECT id FROM users WHERE user_name = 'admin'), '["owner"]', 0)
 	""")
 
-async def down():
+async def down(db):
 	await db.query("DROP TABLE users_permissions;")
