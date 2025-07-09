@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from app.routers import auth
 from app.routers.chatbot import customers, conversation
 from app.routers.mia import mia_sexyshop
+from app.routers.whatsapp import whatsapp
 
 from app.utils.auth import get_current_user
 from app.utils.db import DB
@@ -30,6 +31,7 @@ description = """UtilsAPI"""
 summary = "API de utilidades Flow"
 
 tags_metadata = [
+    {"name": "Muhbianco - Whatsapp", "description": "Whatsapp e integrações."},
     {"name": "Muhbianco - CHATBOT", "description": "Gerenciamento da aplicação CHATBOT."},
     {"name": "MIA - SexyShop", "description": "Endpoints da empresa MIA - SexyShop"},
 ]
@@ -73,6 +75,14 @@ app_base.include_router(
     prefix="/mia_sexyshop",
     dependencies=[Depends(get_current_user), Depends(DB)]
 )
+
+app_base.include_router(
+    whatsapp.router,
+    tags=["Muhbianco - Whatsapp"],
+    prefix="/whatsapp/incoming",
+    dependencies=[Depends(DB)]
+)
+
 
 app = VersionedFastAPI(
     app_base,
