@@ -41,7 +41,6 @@ def extract_text_from_richtext(node, type_nodes, type=None):
 	return texts
 
 class tools:
-
 	@staticmethod
 	async def messages_normalizer(typebot_response):
 		response = []
@@ -65,14 +64,16 @@ class tools:
 
 
 class TypeBot:
-	def __init__(self, data, db):
+	def __init__(self, whatsapp_client, db):
 		self.db = db
+		self.whatsapp_client = whatsapp_client
 
 		self.typebot_session_id = None
-		self.typebot_public_id = data["typebot_public_id"]
-		self.sender_number = data["sender"]["number"]
-		self.sender_name = data["sender"]["name"]
-		self.message = data["message"]["message"]
+		self.typebot_public_id = whatsapp_client.data["typebot_public_id"]
+		self.sender_number = whatsapp_client.data["sender"]["number"]
+		self.sender_name = whatsapp_client.data["sender"]["name"]
+		self.message = whatsapp_client.data["message"]["message"]
+		self.whatsapp_event_type = whatsapp_client.data["event_type"]
 
 	async def start_chat(self):
 		typebot_url_base = os.environ.get("TYPEBOT_URL")
@@ -103,7 +104,7 @@ class TypeBot:
 			AND status IN('open', 'paused');
 		"""
 		response = await self.db.fetchone(query, values)
-		return response["session_id"] if response else None
+		self.typebot_session_id = response["session_id"] if response else None
 
 	async def save_session(self):
 		values = (self.typebot_session_id, self.typebot_public_id, self.sender_number, "open", )
@@ -113,3 +114,14 @@ class TypeBot:
 			(%s, %s, %s, %s)
 		"""
 		await self.db.insert(query, values)
+
+	async def run(self):
+		await self.get_active_session()
+		if not self.typebot_session_id:
+			await self.whatsapp_client.gen_s3_url_file()
+			self.message = self.whatsapp_client.data["message"]["message"]
+			typebot_response = await self.start_chat()
+			typebot_messages = await tools.messages_normalizer(typebot_response)
+			await self.whatsapp_client.sender(typebot_messages)
+			# await self.save_session()
+			# await self.db.commit()

@@ -1,5 +1,3 @@
-import datetime
-import uuid
 import os
 import urllib
 import requests
@@ -8,20 +6,16 @@ import google.generativeai as gemini_client
 from google import genai
 from google.genai import types
 
-from typing import Annotated, List, Union
-from pprint import pprint, pformat
+from typing import Annotated
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import PointStruct
 
-from fastapi import (APIRouter, Body, Depends, HTTPException, Path, Query,
-                     Request, Security, status)
-from fastapi.responses import JSONResponse
+from fastapi import (APIRouter, Body, Depends, HTTPException, Security, status)
 from fastapi_versioning import version
 
-from typing_extensions import TypedDict
 
 from app.utils.db import get_session
 from app.utils.auth import scopes

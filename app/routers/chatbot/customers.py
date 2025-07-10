@@ -1,13 +1,8 @@
-import datetime
-import uuid
-from typing import Annotated, List
+from typing import Annotated
 
-from fastapi import (APIRouter, Body, Depends, HTTPException, Path, Query,
-                     Request, Security, status)
-from fastapi.responses import JSONResponse
+from fastapi import (APIRouter, Depends, Security, status)
 from fastapi_versioning import version
 
-from typing_extensions import TypedDict
 
 from app.utils.db import get_session
 from app.utils.auth import scopes

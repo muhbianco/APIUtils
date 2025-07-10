@@ -8,16 +8,13 @@ import httpx
 import logging
 import magic
 
-from typing import Annotated, List
+from typing import Annotated
 from typing_extensions import TypedDict
-from pprint import pprint, pformat
 
 from google import genai
 from google.genai import types
-from google.genai.types import GenerateContentResponse, Candidate, Content, Part
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request, Security, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Body, Depends, Path, Request, Security, status
 from fastapi_versioning import version
 
 from app.schemas.chatbot.conversation import FreeConversationBase, ReadDocumentsBase
@@ -26,7 +23,6 @@ from app.utils.prompts import DEFAULT_PERSONA, DEFAULT_MEMORY
 from app.utils.db import get_session
 from app.utils.auth import scopes
 
-from redis.exceptions import TimeoutError as RedisTimeoutError
 
 router = APIRouter()
 logger = logging.getLogger("UtilsAPI")
@@ -142,7 +138,6 @@ async def read_documents(
     user_name = payload.user_name
     url_document = payload.url_document
     type_document = payload.type_document
-    content_type = payload.mime_type
     question = payload.question
     gemini_client = _gemini_new_client()
 
@@ -153,8 +148,7 @@ async def read_documents(
         ]
         get_response = requests.get(url_document)
         image_bytes = get_response.content
-        if not content_type:
-            content_type = magic.from_buffer(image_bytes, mime=True)
+        content_type = magic.from_buffer(image_bytes, mime=True)
 
         if content_type not in allowed_formats:
             return {"Status": "Image not allowed", "Response": "Desculpe, não consigo visualizar esse tipo de formato."}
@@ -173,21 +167,22 @@ async def read_documents(
             "application/x-python", "text/x-python", "text/plain", "text/html",
             "text/css", "text/md", "text/csv", "text/xml", "text/rtf"
         ]
-        get_response = io.BytesIO(httpx.get(url_document))
-        document_bytes = get_response.content
+
+        get_response = httpx.get(url_document)
         content_type = get_response.headers.get("Content-Type")
 
         if content_type not in allowed_formats:
             return {"Status": "Document not allowed", "Response": "Desculpe, não consigo visualizar esse tipo de formato."}
 
+        doc_io = io.BytesIO(get_response.content)
         sample_doc = gemini_client.files.upload(
-            file=document_bytes,
+            file=doc_io,
             config={
                 "mime_type": content_type
             }
         )
 
-        response = gemini_client.model.generate_content(
+        response = gemini_client.models.generate_content(
             model="gemini-2.5-flash",
             contents=[sample_doc, question if question else "Fale sobre este documento."]
         )

@@ -9,7 +9,6 @@ from fastapi_versioning import version
 from app.utils.db import get_session
 from app.utils.auth import scopes
 from app.utils.wuzapi.whatsapp import WuzAPI #TROCAR ESSE IMPORT PARA TROCAR DE BACKEND
-from app.utils.typebot import typebot
 from app.utils.typebot.typebot import TypeBot
 
 from app.errors.http_errors import CustomHTTPException
@@ -43,32 +42,20 @@ async def events_incoming(
 	if not request_data["typebot_public_id"]:
 		raise CustomHTTPException.missing_typebot_public_id()
 
-	# pprint(request_data)
+	pprint(request_data)
+
+	""" Monta os objetos Whatsapp e Typebot """
 	whatsapp_client = WuzAPI(request_data, db)
+	typebot_client = TypeBot(whatsapp_client, db)
 	
-	if whatsapp_client.type in ["imageMessage", "documentMessage"]:
-		await whatsapp_client.gen_s3_url_file()
-	
-	whatsapp_data = whatsapp_client.data
-
-	if whatsapp_data["from_me"]:
+	""" Se a mensagem for do hoster/bot ignora """
+	if whatsapp_client.data["from_me"]:
 		raise CustomHTTPException.message_from_bot()
-
-	typebot_client = TypeBot(whatsapp_data, db)
-
-	if whatsapp_data["event_type"] == "Message":
-
-		typebot_session = await typebot_client.get_active_session()
-		if not typebot_session:
-
-			try:
-				typebot_response = await typebot_client.start_chat()
-				pprint(typebot_response)
-				typebot_messages = await typebot.tools.messages_normalizer(typebot_response)
-				await whatsapp_client.sender(typebot_messages)
-				# await typebot_client.save_session()
-				# await db.commit()
-			except Exception as e:
-				await db.rollback()
-				raise e
-
+	
+	""" Inicia o processo TypeBot """
+	if whatsapp_client.data["event_type"] == "Message":
+		try:
+			await typebot_client.run()
+		except Exception as e:
+			await db.rollback()
+			raise e

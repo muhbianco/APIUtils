@@ -1,9 +1,8 @@
 import os
 import logging
-import asyncio
 import json
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Union
 
 from jose import JWTError, jwt

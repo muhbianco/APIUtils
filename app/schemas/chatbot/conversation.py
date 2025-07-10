@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from uuid import UUID
 from typing import Optional
 
 class FreeConversationBase(BaseModel):
@@ -12,5 +11,4 @@ class ReadDocumentsBase(BaseModel):
     user_name: str
     url_document: str
     type_document: str
-    mime_type: str
     question: Optional[str] = None
