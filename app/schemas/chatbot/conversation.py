@@ -12,4 +12,5 @@ class ReadDocumentsBase(BaseModel):
     user_name: str
     url_document: str
     type_document: str
+    mime_type: str
     question: Optional[str] = None

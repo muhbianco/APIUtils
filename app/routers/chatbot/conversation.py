@@ -5,6 +5,8 @@ import re
 import requests
 import io
 import httpx
+import logging
+import magic
 
 from typing import Annotated, List
 from typing_extensions import TypedDict
@@ -27,6 +29,7 @@ from app.utils.auth import scopes
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
 router = APIRouter()
+logger = logging.getLogger("UtilsAPI")
 
 def _redis_client() -> redis.Redis:
     return redis.Redis(host=os.environ.get("REDIS_HOST"), port=6379, db=4, socket_timeout=10)
@@ -139,6 +142,7 @@ async def read_documents(
     user_name = payload.user_name
     url_document = payload.url_document
     type_document = payload.type_document
+    content_type = payload.mime_type
     question = payload.question
     gemini_client = _gemini_new_client()
 
@@ -149,7 +153,8 @@ async def read_documents(
         ]
         get_response = requests.get(url_document)
         image_bytes = get_response.content
-        content_type = get_response.headers.get("Content-Type")
+        if not content_type:
+            content_type = magic.from_buffer(image_bytes, mime=True)
 
         if content_type not in allowed_formats:
             return {"Status": "Image not allowed", "Response": "Desculpe, não consigo visualizar esse tipo de formato."}

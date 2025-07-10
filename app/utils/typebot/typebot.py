@@ -38,7 +38,6 @@ class tools:
 
 	@staticmethod
 	async def messages_normalizer(typebot_response):
-		pprint(typebot_response)
 		response = []
 		for bubble in typebot_response:
 			typebot_data = typebot_response[bubble]
