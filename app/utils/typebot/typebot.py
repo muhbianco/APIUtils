@@ -12,6 +12,10 @@ def extract_text_from_richtext(node, type_nodes, type=None):
 
 	if isinstance(node, dict):
 		if 'text' in node:
+
+			last_node = False
+			if len(type_nodes) >= 2:
+				last_node = type_nodes[-2]
 			
 			if "bold" in node and node["bold"]:
 				node['text'] = f"*{node['text']}*"
@@ -20,8 +24,10 @@ def extract_text_from_richtext(node, type_nodes, type=None):
 			if "code" in node and node["code"]:
 				node['text'] = f"~{node['text']}~"
 
-			if len(type_nodes) >= 2 and type_nodes[-2] == "li":
+			if last_node and last_node == "li":
 				node['text'] = f"- {node['text']}"
+			if type == "lic":
+				node['text'] = f"	{node['text']}"
 
 			texts.append(node['text']+"\n")
 

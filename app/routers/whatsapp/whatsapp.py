@@ -43,7 +43,7 @@ async def events_incoming(
 	if not request_data["typebot_public_id"]:
 		raise CustomHTTPException.missing_typebot_public_id()
 
-	pprint(request_data)
+	# pprint(request_data)
 	whatsapp_client = WuzAPI(request_data, db)
 	
 	if whatsapp_client.type in ["imageMessage", "documentMessage"]:
@@ -63,6 +63,7 @@ async def events_incoming(
 
 			try:
 				typebot_response = await typebot_client.start_chat()
+				pprint(typebot_response)
 				typebot_messages = await typebot.tools.messages_normalizer(typebot_response)
 				await whatsapp_client.sender(typebot_messages)
 				# await typebot_client.save_session()
