@@ -13,6 +13,7 @@ def wuzapi_end_points():
 		"imageMessage": "chat/downloadimage",
 		"documentMessage": "chat/downloaddocument",
 		"sendText": "chat/send/text",
+		"audioMessage": "chat/downloadvideo",
 	}
 
 class WuzAPI:
@@ -26,29 +27,30 @@ class WuzAPI:
 			"receiver": in_data["jid"],
 			"sender": {
 				"name": in_data["event"]["Info"]["PushName"],
-				"number": in_data["event"]["Info"]["Sender"].split(":")[0],
+				"number": "",
 			},
 			"message": {
 				"type": in_data["event"]["Info"]["Type"],
 				"message": "",
 			}
 		}
+		if ":" in in_data["event"]["Info"]["Sender"]:
+			self.data["sender"]["number"] = in_data["event"]["Info"]["Sender"].split(":")[0]
+		else:
+			self.data["sender"]["number"] = in_data["event"]["Info"]["Sender"].split("@")[0]
 		self.type = None
 
 		if "conversation" in in_data["event"]["Message"]:
 			self.data["message"]["message"] = in_data["event"]["Message"]["conversation"]
 			self.type = "conversation"
 
-		allowed_types = ["imageMessage", "documentMessage"]
-		print("allowed_types", allowed_types)
-		print(any(key in in_data["event"]["Message"] for key in allowed_types))
-		if any(key in in_data["event"]["Message"] for key in allowed_types):
-			for key in allowed_types:
+		self.allowed_types = ["imageMessage", "documentMessage", "audioMessage"]
+		if any(key in in_data["event"]["Message"] for key in self.allowed_types):
+			for key in self.allowed_types:
 				if key in in_data["event"]["Message"]:
 					self.type = key
 					break
 
-			print(f"??????????????????????? {self.type}")
 			url = in_data['event']['Message'][self.type]['URL']
 			caption = ""
 			if "caption" in in_data['event']['Message'][self.type]:
@@ -67,7 +69,7 @@ class WuzAPI:
 
 
 	async def gen_s3_url_file(self):
-		if self.type not in ["imageMessage", "documentMessage"]:
+		if self.type not in self.allowed_types:
 			return
 
 		whatsapp_url_base = os.environ.get("WUZAPI_URL")

@@ -42,7 +42,7 @@ async def events_incoming(
 	if not request_data["typebot_public_id"]:
 		raise CustomHTTPException.missing_typebot_public_id()
 
-	pprint(request_data)
+	# pprint(request_data)
 
 	""" Monta os objetos Whatsapp e Typebot """
 	whatsapp_client = WuzAPI(request_data, db)

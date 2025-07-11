@@ -8,7 +8,9 @@ import httpx
 import logging
 import magic
 
-from typing import Annotated
+from pprint import pprint
+
+from typing import Annotated, Any
 from typing_extensions import TypedDict
 
 from google import genai
@@ -19,6 +21,7 @@ from fastapi_versioning import version
 
 from app.schemas.chatbot.conversation import FreeConversationBase, ReadDocumentsBase
 
+from app.utils.gemini_tools.tools import schedule_meeting_function
 from app.utils.prompts import DEFAULT_PERSONA, DEFAULT_MEMORY
 from app.utils.db import get_session
 from app.utils.auth import scopes
@@ -47,18 +50,21 @@ def _load_memory(chat_id: str) -> str:
         chat += f"text: {text}\n"
     return chat
 
-def _save_memory(chat: genai.Client.chats, chat_id: str) -> None:
+def _save_memory(chat: Any, chat_id: str, role: str) -> None:
     redis = _redis_client()
     redis_messages = redis.lrange(chat_id, 0, -1)
     messages = []
-    for message in chat._comprehensive_history:
-        role = message.role
-        for part in message.parts:
-            data = {
-                "role": role,
-                "text": part.text,
-            }
-            messages.append(json.dumps(data))
+    if role == "agent":
+        data = {
+            "role": role,
+            "text": chat.text,
+        }
+    if role == "human":
+        data = {
+            "role": role,
+            "text": chat,
+        }
+    messages.append(json.dumps(data))
     redis.rpush(chat_id, *messages)
 
 def _get_system_instructions(config: dict, prompts: list) -> str:
@@ -95,13 +101,15 @@ async def free_conversation(
     chat_id = payload.chat_id
     user_name = payload.user_name
     question = payload.question
-    conversation_gemini_client = _gemini_new_client()
+    gemini_client = _gemini_new_client()
 
     memory = _load_memory(chat_id)
+    _save_memory(question, chat_id, "human")
     config = {
         "memory": memory,
         "user_name": user_name,
     }
+    tools = types.Tool(function_declarations=[schedule_meeting_function])
     system_prompts = [DEFAULT_PERSONA, DEFAULT_MEMORY]
     system_instructions = _get_system_instructions(config, system_prompts)
     generation_config = {
@@ -110,15 +118,23 @@ async def free_conversation(
         # "top_k": 1,
         # "max_output_tokens": 4096,
         "system_instruction": system_instructions,
+        "tools": [tools],
     }
 
-    conversation_chat = conversation_gemini_client.chats.create(
+    response = gemini_client.models.generate_content(
         model="gemini-2.5-flash",
-        config=types.GenerateContentConfig(**generation_config)
+        contents=question,
+        config=types.GenerateContentConfig(**generation_config),
     )
+    _save_memory(response, chat_id, "agent")
 
-    response = conversation_chat.send_message(question)
-    _save_memory(conversation_chat, chat_id)
+    if response.candidates[0].content.parts[0].function_call:
+        function_call = response.candidates[0].content.parts[0].function_call
+        pprint(function_call)
+        print(f"Function to call: {function_call.name}")
+        print(f"Arguments: {function_call.args}")
+        #  In a real app, you would call your function here:
+        #  result = schedule_meeting(**function_call.args)
 
     return FreeConversationResponse(**{"Status": "Success", "Response": response.text})
 
