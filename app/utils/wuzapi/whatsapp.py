@@ -17,56 +17,106 @@ def wuzapi_end_points():
 	}
 
 class WuzAPI:
-	def __init__(self, in_data, db):
+	def __init__(self, request, in_data, db):
 		self.db = db
+		self.data = {}
+		self.resource = request.query_params.get("resource")
 
-		self.data = {
-			"typebot_public_id": in_data["typebot_public_id"],
-			"event_type": in_data["type"],
-			"from_me": in_data["event"]["Info"]["IsFromMe"],
-			"receiver": in_data["jid"],
-			"sender": {
-				"name": in_data["event"]["Info"]["PushName"],
-				"number": "",
-			},
-			"message": {
-				"type": in_data["event"]["Info"]["Type"],
-				"message": "",
+		""" Mensagens vinda do whatsapp (wuzapi)"""
+		if self.resource == "whatsapp":
+			in_data["jid"] = request.query_params.get("jid", None)
+			in_data["typebot_public_id"] = request.query_params.get("typebot_public_id", None)
+
+			if not in_data["jid"]:
+				raise CustomHTTPException.missing_jid()
+			if not in_data["typebot_public_id"]:
+				raise CustomHTTPException.missing_typebot_public_id()
+			
+			self.data = {
+				"typebot_public_id": in_data["typebot_public_id"],
+				"event_type": in_data["type"],
+				"from_me": in_data["event"]["Info"]["IsFromMe"],
+				"receiver": in_data["jid"],
+				"sender": {
+					"name": in_data["event"]["Info"]["PushName"],
+					"number": "",
+				},
+				"message": {
+					"type": in_data["event"]["Info"]["Type"],
+					"message": "",
+				}
 			}
-		}
-		if ":" in in_data["event"]["Info"]["Sender"]:
-			self.data["sender"]["number"] = in_data["event"]["Info"]["Sender"].split(":")[0]
+
+			""" Se a mensagem for do hoster/bot ignora """
+			if self.data["from_me"]:
+				raise CustomHTTPException.message_from_bot()
+
+			if ":" in in_data["event"]["Info"]["Sender"]:
+				self.data["sender"]["number"] = in_data["event"]["Info"]["Sender"].split(":")[0]
+			else:
+				self.data["sender"]["number"] = in_data["event"]["Info"]["Sender"].split("@")[0]
+			self.type = None
+
+			if "conversation" in in_data["event"]["Message"]:
+				self.data["message"]["message"] = in_data["event"]["Message"]["conversation"]
+				self.type = "conversation"
+
+			self.allowed_types = ["imageMessage", "documentMessage", "audioMessage"]
+			if any(key in in_data["event"]["Message"] for key in self.allowed_types):
+				for key in self.allowed_types:
+					if key in in_data["event"]["Message"]:
+						self.type = key
+						break
+
+				url = in_data['event']['Message'][self.type]['URL']
+				caption = ""
+				if "caption" in in_data['event']['Message'][self.type]:
+					caption = in_data['event']['Message'][self.type]['caption']
+				mimetype = in_data["event"]["Message"][self.type]["mimetype"]
+				self.data["message"]["message"] = f"imageMessage|{url}|{caption}"
+				self.data["message"]["mimetype"] = mimetype
+				self.data["message"]["caption"] = caption
+				self.data["message"]["url"] = url
+				self.data["message"]["mediaKey"] = in_data['event']['Message'][self.type]['mediaKey']
+				self.data["message"]["filename"] = in_data["fileName"]
+				self.data["message"]["directPath"] = in_data['event']['Message'][self.type]['directPath']
+				self.data["message"]["fileEncSHA256"] = in_data['event']['Message'][self.type]['fileEncSHA256']
+				self.data["message"]["fileSHA256"] = in_data['event']['Message'][self.type]['fileSHA256']
+				self.data["message"]["fileLength"] = in_data['event']['Message'][self.type]['fileLength']
+		
+		elif self.resource == "chatwoot":
+			pprint(request.query_params.__dict__)
+			pprint(in_data)
+			allowed_events = ["message_created", "conversation_updated", "message_updated"]
+			self.data["event_type"] = in_data.get("event")
+			
+			if self.data["event_type"] in allowed_events:
+				if in_data.get("meta"):
+					receiver = in_data.get("meta").get("assignee").get("available_name")
+					sender_name = in_data.get("meta").get("sender").get("name")
+					sender_number = in_data.get("meta").get("sender").get("identifier")
+					message_type = in_data.get("messages")[0].get("content_type")
+					message = in_data.get("messages")[0].get("content")
+				else:
+					receiver = in_data.get("conversation").get("meta").get("assignee").get("available_name")
+					sender_name = in_data.get("conversation").get("meta").get("sender").get("name")
+					sender_number = in_data.get("conversation").get("meta").get("sender").get("identifier")
+					message_type = in_data.get("conversation").get("messages")[0].get("content_type")
+					message = in_data.get("conversation").get("messages")[0].get("content")
+				self.data = {
+					"from_me": True,
+					"receiver": receiver,
+					"sender": {
+						"name": sender_name,
+						"number": sender_number.split("@")[0],
+					},
+					"message": {
+						"type": message_type,
+						"message": message,
+					}
+				}
 		else:
-			self.data["sender"]["number"] = in_data["event"]["Info"]["Sender"].split("@")[0]
-		self.type = None
-
-		if "conversation" in in_data["event"]["Message"]:
-			self.data["message"]["message"] = in_data["event"]["Message"]["conversation"]
-			self.type = "conversation"
-
-		self.allowed_types = ["imageMessage", "documentMessage", "audioMessage"]
-		if any(key in in_data["event"]["Message"] for key in self.allowed_types):
-			for key in self.allowed_types:
-				if key in in_data["event"]["Message"]:
-					self.type = key
-					break
-
-			url = in_data['event']['Message'][self.type]['URL']
-			caption = ""
-			if "caption" in in_data['event']['Message'][self.type]:
-				caption = in_data['event']['Message'][self.type]['caption']
-			mimetype = in_data["event"]["Message"][self.type]["mimetype"]
-			self.data["message"]["message"] = f"imageMessage|{url}|{caption}"
-			self.data["message"]["mimetype"] = mimetype
-			self.data["message"]["caption"] = caption
-			self.data["message"]["url"] = url
-			self.data["message"]["mediaKey"] = in_data['event']['Message'][self.type]['mediaKey']
-			self.data["message"]["filename"] = in_data["fileName"]
-			self.data["message"]["directPath"] = in_data['event']['Message'][self.type]['directPath']
-			self.data["message"]["fileEncSHA256"] = in_data['event']['Message'][self.type]['fileEncSHA256']
-			self.data["message"]["fileSHA256"] = in_data['event']['Message'][self.type]['fileSHA256']
-			self.data["message"]["fileLength"] = in_data['event']['Message'][self.type]['fileLength']
-
+			print("mensagens vindas de lugar desconhecido.")
 
 	async def gen_s3_url_file(self):
 		if self.type not in self.allowed_types:
@@ -113,8 +163,12 @@ class WuzAPI:
 		whatsapp_payload = {
 			"Phone": self.data["sender"]["number"],
 		}
+		if self.resource == "chatwoot":
+			messages = [f"*[{self.data['receiver']}]*\n"+self.data["message"]["message"]]
 		for message in messages:
 			whatsapp_payload["Body"] = message
+			print("-*------------------------")
+			pprint(whatsapp_payload)
 			async with aiohttp.ClientSession() as session:
 				async with session.post(whatsapp_url, headers=whatsapp_headers, json=whatsapp_payload) as whatsapp_request:
 					whatsapp_response = await whatsapp_request.json()

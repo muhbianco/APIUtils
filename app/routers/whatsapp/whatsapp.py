@@ -33,29 +33,34 @@ async def events_incoming(
 	- ChatPresence ❌
 	- Message ✔
 	"""
-	request_data = await request.json()
-	request_data["jid"] = request.query_params.get("jid", None)
-	request_data["typebot_public_id"] = request.query_params.get("typebot_public_id", None)
+	try:
+		request_data = await request.json()
 
-	if not request_data["jid"]:
-		raise CustomHTTPException.missing_jid()
-	if not request_data["typebot_public_id"]:
-		raise CustomHTTPException.missing_typebot_public_id()
-
-	# pprint(request_data)
-
-	""" Monta os objetos Whatsapp e Typebot """
-	whatsapp_client = WuzAPI(request_data, db)
-	typebot_client = TypeBot(whatsapp_client, db)
-	
-	""" Se a mensagem for do hoster/bot ignora """
-	if whatsapp_client.data["from_me"]:
-		raise CustomHTTPException.message_from_bot()
-	
-	""" Inicia o processo TypeBot """
-	if whatsapp_client.data["event_type"] == "Message":
-		try:
-			await typebot_client.run()
-		except Exception as e:
-			await db.rollback()
-			raise e
+		""" Monta os objetos Whatsapp e Typebot """
+		whatsapp_client = WuzAPI(request, request_data, db)
+		
+		""" 
+		Resource = whatsapp
+		Inicia o processo TypeBot - Mensagens de entrada
+		
+		Resource = chatwoot
+		Apenas repassa ao whatsapp
+		"""
+		"""
+			TODO
+			- Verificar o status da conversa
+		"""
+		# if whatsapp_client.data["event_type"] == "Message":
+		if whatsapp_client.resource == "whatsapp":
+			typebot_client = TypeBot(whatsapp_client, db)
+			try:
+				await typebot_client.run()
+			except Exception as e:
+				await db.rollback()
+				raise e
+		elif whatsapp_client.resource == "chatwoot":
+			await whatsapp_client.sender([])
+	except Exception as e:
+		print(e)
+		raise e
+	return {"code": 200}

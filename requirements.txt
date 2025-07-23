@@ -38,9 +38,10 @@ fpdf2==2.8.1
 frozenlist==1.7.0
 google-ai-generativelanguage==0.6.15
 google-api-core==2.25.1
-google-api-python-client==2.173.0
+google-api-python-client==2.176.0
 google-auth==2.40.3
 google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.2
 google-genai==1.21.1
 google-generativeai==0.8.5
 googleapis-common-protos==1.70.0
@@ -82,6 +83,7 @@ nest-asyncio==1.6.0
 newspaper3k==0.2.8
 nltk==3.9.1
 numpy==2.3.1
+oauthlib==3.3.1
 packaging==24.1
 parsel==1.9.1
 parso==0.8.4
@@ -123,6 +125,7 @@ redis==6.2.0
 regex==2024.9.11
 requests==2.32.3
 requests-file==2.1.0
+requests-oauthlib==2.0.0
 rich==13.9.2
 rsa==4.9
 ruff==0.12.2

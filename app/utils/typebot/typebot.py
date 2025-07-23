@@ -6,52 +6,80 @@ from pprint import pprint
 
 from app.errors.http_errors import CustomHTTPException
 
-def extract_text_from_richtext(node, type_nodes, type=None):
+def extract_text_from_richtext(node, type, type_nodes = []):
 	texts = []
+	parts = ""
 	type_nodes.append(type)
+	li = False
+	lic = False
 
-	if isinstance(node, dict):
-		if 'text' in node:
+	for item in node:
+
+		if "text" in item:
 
 			last_node = False
 			if len(type_nodes) >= 2:
 				last_node = type_nodes[-2]
-			
-			if "bold" in node and node["bold"]:
-				node['text'] = f"*{node['text']}*"
-			if "italic" in node and node["italic"]:
-				node['text'] = f"_{node['text']}_"
-			if "code" in node and node["code"]:
-				node['text'] = f"~{node['text']}~"
 
-			if last_node and last_node == "li":
-				node['text'] = f"- {node['text']}"
-			if type == "lic":
-				node['text'] = f"	{node['text']}"
+			if not item["text"]:
+				if type == "hr":
+					item["text"] = "____________________________________"
+				if type == "p":
+					item["text"] = "\n"
+			else:
+				if item.get("bold"):
+					item["text"] = f"*{item['text']}*"
+				if item.get("italic"):
+					item["text"] = f"_{item['text']}_"
+				if item.get("code"):
+					item["text"] = f"`{item['text']}`"
 
-			texts.append(node['text']+"\n")
+				if (type == "li" or last_node == "li") and not li:
+					item["text"] = f"• {item['text']}"
+					li = True
+				elif (type == "li" or last_node == "li") and li:
+					item["text"] = f"{item['text']}"
 
-		if 'children' in node:
-			for child in node['children']:
-				texts.extend(extract_text_from_richtext(child, type_nodes, node['type']))
-	elif isinstance(node, list):
-		for item in node:
-			texts.extend(extract_text_from_richtext(item, type_nodes, type))
+				if (type == "lic" or last_node == "lic") and not lic:
+					item["text"] = f"	{item['text']}"
+					lic = True
+				elif (type == "lic" or last_node == "lic") and lic:
+					item["text"] = f"{item['text']}"
 
+				if type == "h1":
+					item["text"] = f"***{item['text']}***"
+
+				if type == "code_line":
+					item["text"] = f"```{item['text']}```"
+				
+
+			parts += item["text"]
+
+		if "children" in item:
+			texts.extend(extract_text_from_richtext(item["children"], item["type"], type_nodes))
+
+	if parts:
+		texts.append(parts+"\n")
 	return texts
+
 
 class tools:
 	@staticmethod
 	async def messages_normalizer(typebot_response):
+		# pprint(typebot_response)
 		response = []
 		for bubble in typebot_response:
 			typebot_data = typebot_response[bubble]
 			if bubble == "messages":
 				for message in typebot_data:
-					content = ""
 					type = message["content"]["type"]
-					content = " ".join(extract_text_from_richtext(message["content"][type], []))
+					content = ""
+					for child in message["content"][type]:
+						pprint(child)
+						print("--------")
+						content += "".join(extract_text_from_richtext(child["children"], child["type"]))
 					response.append(content)
+
 			if bubble == "input":
 				content = ""
 				if "options" in typebot_data:
@@ -60,6 +88,8 @@ class tools:
 						response.append(content)
 				else:
 					raise CustomHTTPException.missing_typebot_placeholder()
+		print("RESPONSE FINAL")
+		print(response)
 		return response
 
 
