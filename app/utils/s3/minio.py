@@ -17,7 +17,10 @@ class S3Minio:
 	@staticmethod
 	async def upload_file(whatsapp_response, filename):
 		mimetype = whatsapp_response["data"]["Mimetype"]
-		base64_str = whatsapp_response["data"]["Data"].split(",")[1]
+		if "," in whatsapp_response["data"]["Data"]:
+			base64_str = whatsapp_response["data"]["Data"].split(",")[1]
+		else:
+			base64_str = whatsapp_response["data"]["Data"]
 		decoded_bytes = base64.b64decode(base64_str)
 		content_length = len(decoded_bytes)
 		file_bytes = io.BytesIO(decoded_bytes)

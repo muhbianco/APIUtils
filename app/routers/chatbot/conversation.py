@@ -22,6 +22,7 @@ from fastapi_versioning import version
 from app.schemas.chatbot.conversation import FreeConversationBase, ReadDocumentsBase
 
 from app.utils.gemini_tools.tools import schedule_meeting_function, schedule_meeting
+from app.utils.gemini_tools.tools import create_image_function, create_image
 from app.utils.prompts import DEFAULT_PERSONA, DEFAULT_MEMORY
 from app.utils.db import get_session
 from app.utils.auth import scopes
@@ -102,6 +103,7 @@ async def free_conversation(
 	"""
 	Conversação livre com a IA
 	"""
+	print("??????????????")
 	chat_id = payload.chat_id
 	user_name = payload.user_name
 	question = payload.question
@@ -113,7 +115,7 @@ async def free_conversation(
 		"memory": memory,
 		"user_name": user_name,
 	}
-	tools = types.Tool(function_declarations=[schedule_meeting_function])
+	tools = types.Tool(function_declarations=[schedule_meeting_function, create_image_function])
 	system_prompts = [DEFAULT_PERSONA, DEFAULT_MEMORY]
 	system_instructions = _get_system_instructions(config, system_prompts)
 	generation_config = {
@@ -126,7 +128,7 @@ async def free_conversation(
 	}
 
 	response = gemini_client.models.generate_content(
-		model="gemini-2.5-flash",
+		model="gemini-2.5-pro",
 		contents=question,
 		config=types.GenerateContentConfig(**generation_config),
 	)
@@ -140,8 +142,10 @@ async def free_conversation(
 				response = CustomResponseGemini("Sua reunião foi agendada com sucesso!")
 			else:
 				response = CustomResponseGemini("Houve algum problema com o Google Calender, favor envie os dados novamente.")
+		if function_call.name == "image_creation":
+			image_url = await create_image(**function_call.args)
+			response = CustomResponseGemini(f"imageMessage|{image_url}")
 
-	pprint(response)
 	_save_memory(response, chat_id, "agent")
 	return FreeConversationResponse(**{"Status": "Success", "Response": response.text})
 
@@ -179,7 +183,7 @@ async def read_documents(
 		image = types.Part.from_bytes(data=image_bytes, mime_type=content_type)
 
 		response = gemini_client.models.generate_content(
-			model="gemini-2.5-flash",
+			model="gemini-2.5-pro",
 			contents=[question if question else "Fale sobre esta imagem.", image],
 		)
 
@@ -206,7 +210,7 @@ async def read_documents(
 		)
 
 		response = gemini_client.models.generate_content(
-			model="gemini-2.5-flash",
+			model="gemini-2.5-pro",
 			contents=[sample_doc, question if question else "Fale sobre este documento."]
 		)
 
