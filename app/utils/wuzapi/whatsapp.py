@@ -1,6 +1,8 @@
 import os
 import urllib.parse
 import aiohttp
+import requests
+import base64
 
 from pprint import pprint
 	
@@ -14,6 +16,7 @@ def wuzapi_end_points():
 		"documentMessage": "chat/downloaddocument",
 		"sendText": "chat/send/text",
 		"audioMessage": "chat/downloadvideo",
+		"sendImage": "chat/send/image"
 	}
 
 class WuzAPI:
@@ -29,8 +32,8 @@ class WuzAPI:
 
 			if not in_data["jid"]:
 				raise CustomHTTPException.missing_jid()
-			if not in_data["typebot_public_id"]:
-				raise CustomHTTPException.missing_typebot_public_id()
+			# if not in_data["typebot_public_id"]:
+			# 	raise CustomHTTPException.missing_typebot_public_id()
 			
 			self.data = {
 				"typebot_public_id": in_data["typebot_public_id"],
@@ -85,8 +88,6 @@ class WuzAPI:
 				self.data["message"]["fileLength"] = in_data['event']['Message'][self.type]['fileLength']
 		
 		elif self.resource == "chatwoot":
-			pprint(request.query_params.__dict__)
-			pprint(in_data)
 			allowed_events = ["message_created", "conversation_updated", "message_updated"]
 			self.data["event_type"] = in_data.get("event")
 			
@@ -150,11 +151,19 @@ class WuzAPI:
 		if self.data['message']['caption']:
 			self.data["message"]["message"] += f"|{self.data['message']['caption']}"
 
+	async def url_to_base64(self, image_url):
+	    response = requests.get(image_url)
+	    response.raise_for_status()
+
+	    mime_type = response.headers.get("Content-Type")
+	    base64_bytes = base64.b64encode(response.content)
+	    base64_string = base64_bytes.decode("utf-8")
+
+	    return f"data:{mime_type};base64,{base64_string}"
+
 
 	async def sender(self, messages):
 		whatsapp_url_base = os.environ.get("WUZAPI_URL")
-		whatsapp_endpoint = wuzapi_end_points()["sendText"]
-		whatsapp_url = urllib.parse.urljoin(whatsapp_url_base, whatsapp_endpoint)
 		whatsapp_headers = {
 			"content-type": "application/json",
 			"accept": "application/json",
@@ -166,9 +175,14 @@ class WuzAPI:
 		if self.resource == "chatwoot":
 			messages = [f"*[{self.data['receiver']}]*\n"+self.data["message"]["message"]]
 		for message in messages:
-			whatsapp_payload["Body"] = message
-			print("-*------------------------")
-			pprint(whatsapp_payload)
+			if "imageMessage|" in message:
+				whatsapp_endpoint = wuzapi_end_points()["sendImage"]
+				whatsapp_payload["Image"] = await self.url_to_base64(message.split("|")[1])
+				whatsapp_payload["Caption"] = message.split("|")[1]
+			else:
+				whatsapp_endpoint = wuzapi_end_points()["sendText"]
+				whatsapp_payload["Body"] = message
+			whatsapp_url = urllib.parse.urljoin(whatsapp_url_base, whatsapp_endpoint)
 			async with aiohttp.ClientSession() as session:
 				async with session.post(whatsapp_url, headers=whatsapp_headers, json=whatsapp_payload) as whatsapp_request:
 					whatsapp_response = await whatsapp_request.json()

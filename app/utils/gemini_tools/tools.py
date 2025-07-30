@@ -121,5 +121,4 @@ async def create_image(**args):
 		}
 	}
 	s3_url = await S3Minio.upload_file(image_data, f"{uuid.uuid4()}.{image_data['data']['Mimetype'].split('/')[1]}")
-	print("criando url", s3_url)
 	return s3_url

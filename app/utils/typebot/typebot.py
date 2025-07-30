@@ -4,6 +4,7 @@ import aiohttp
 
 from pprint import pprint
 
+from app.routers.chatbot.conversation import gemini_free_conversation
 from app.errors.http_errors import CustomHTTPException
 
 def extract_text_from_richtext(node, type, type_nodes = []):
@@ -66,7 +67,6 @@ def extract_text_from_richtext(node, type, type_nodes = []):
 class tools:
 	@staticmethod
 	async def messages_normalizer(typebot_response):
-		# pprint(typebot_response)
 		response = []
 		for bubble in typebot_response:
 			typebot_data = typebot_response[bubble]
@@ -75,8 +75,6 @@ class tools:
 					type = message["content"]["type"]
 					content = ""
 					for child in message["content"][type]:
-						pprint(child)
-						print("--------")
 						content += "".join(extract_text_from_richtext(child["children"], child["type"]))
 					response.append(content)
 
@@ -88,8 +86,6 @@ class tools:
 						response.append(content)
 				else:
 					raise CustomHTTPException.missing_typebot_placeholder()
-		print("RESPONSE FINAL")
-		print(response)
 		return response
 
 
@@ -97,7 +93,6 @@ class TypeBot:
 	def __init__(self, whatsapp_client, db):
 		self.db = db
 		self.whatsapp_client = whatsapp_client
-
 		self.typebot_session_id = None
 		self.typebot_public_id = whatsapp_client.data["typebot_public_id"]
 		self.sender_number = whatsapp_client.data["sender"]["number"]
@@ -150,8 +145,14 @@ class TypeBot:
 		if not self.typebot_session_id:
 			await self.whatsapp_client.gen_s3_url_file()
 			self.message = self.whatsapp_client.data["message"]["message"]
-			typebot_response = await self.start_chat()
-			typebot_messages = await tools.messages_normalizer(typebot_response)
-			await self.whatsapp_client.sender(typebot_messages)
+			if self.typebot_public_id:
+				typebot_response = await self.start_chat()
+				messages_to_send = await tools.messages_normalizer(typebot_response)
+				await self.whatsapp_client.sender(messages_to_send)
+			else:
+				await gemini_free_conversation(
+					self.sender_number, self.sender_name,
+					self.message, self.whatsapp_client
+				)
 			# await self.save_session()
 			# await self.db.commit()
