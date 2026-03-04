@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi_versioning import VersionedFastAPI
 from fastapi.staticfiles import StaticFiles
 
+from scalar_fastapi import get_scalar_api_reference
+
 from app.routers import auth
 from app.routers.chatbot import customers, conversation
 from app.routers.mia import mia_sexyshop
@@ -83,7 +85,6 @@ app_base.include_router(
     dependencies=[Depends(DB)]
 )
 
-
 app = VersionedFastAPI(
     app_base,
     enable_latest=True,
@@ -92,6 +93,13 @@ app = VersionedFastAPI(
     openapi_tags=tags_metadata,
     debug=True,
 )
+
+@app.get("/scalar", include_in_schema=False)
+async def scalar_html():
+    return get_scalar_api_reference(
+        openapi_url="latest/openapi.json",
+        title=app.title,
+    )
 
 # @app.on_event("startup")
 # async def startup_event():

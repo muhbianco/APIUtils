@@ -146,7 +146,9 @@ class TypeBot:
 			await self.whatsapp_client.gen_s3_url_file()
 			self.message = self.whatsapp_client.data["message"]["message"]
 			if self.typebot_public_id:
+				print(1)
 				typebot_response = await self.start_chat()
+				print(typebot_response)
 				messages_to_send = await tools.messages_normalizer(typebot_response)
 				await self.whatsapp_client.sender(messages_to_send)
 			else:

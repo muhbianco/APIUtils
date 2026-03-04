@@ -38,6 +38,7 @@ async def events_incoming(
 
 		""" Monta os objetos Whatsapp e Typebot """
 		whatsapp_client = WuzAPI(request, request_data, db)
+		pprint(request_data)
 		
 		""" 
 		Resource = whatsapp

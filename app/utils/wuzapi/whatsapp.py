@@ -54,10 +54,13 @@ class WuzAPI:
 			if self.data["from_me"]:
 				raise CustomHTTPException.message_from_bot()
 
-			if ":" in in_data["event"]["Info"]["Sender"]:
-				self.data["sender"]["number"] = in_data["event"]["Info"]["Sender"].split(":")[0]
+			sender_key = "Sender"
+			if "@lid" in in_data["event"]["Info"]["Chat"]:
+				sender_key = "SenderAlt"
+			if ":" in in_data["event"]["Info"][sender_key]:
+				self.data["sender"]["number"] = in_data["event"]["Info"][sender_key].split(":")[0]
 			else:
-				self.data["sender"]["number"] = in_data["event"]["Info"]["Sender"].split("@")[0]
+				self.data["sender"]["number"] = in_data["event"]["Info"][sender_key].split("@")[0]
 			self.type = None
 
 			if "conversation" in in_data["event"]["Message"]:
@@ -187,4 +190,5 @@ class WuzAPI:
 				async with session.post(whatsapp_url, headers=whatsapp_headers, json=whatsapp_payload) as whatsapp_request:
 					whatsapp_response = await whatsapp_request.json()
 					if whatsapp_request.status != 200:
+						print("vam daqui")
 						raise CustomHTTPException.whatsapp_sender_error(whatsapp_response)
